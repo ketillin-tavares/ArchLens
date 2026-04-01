@@ -1,0 +1,150 @@
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    container_name: upload-service-postgres
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-upload_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-upload_pass}
+      POSTGRES_DB: ${DATABASE_NAME:-upload_db}
+      NRIA_LICENSE_KEY: ${NRIA_LICENSE_KEY}
+      NRIA_DISPLAY_NAME: upload-service-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-upload_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - upload-service-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: upload-service-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - upload-service-network
+
+  localstack:
+    image: localstack/localstack:4.14
+    container_name: upload-service-localstack
+    environment:
+      SERVICES: s3
+      DEBUG: 0
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "awslocal", "s3", "ls"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - upload-service-network
+
+  localstack-init:
+    image: amazon/aws-cli:latest
+    container_name: upload-service-localstack-init
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Aguardando LocalStack...' &&
+        until aws --endpoint-url=http://localstack:4566 s3 ls 2>/dev/null; do
+          sleep 2;
+        done &&
+        echo 'Criando bucket archlens-diagramas...' &&
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://archlens-diagramas --region us-east-1 || true &&
+        echo 'Bucket criado com sucesso!'
+      "
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - upload-service-network
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: upload-service-migrations
+    env_file:
+      - .env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - upload-service-network
+
+  upload-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: upload-service-app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      localstack-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - upload-service-network
+
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    container_name: upload-service-newrelic-infra
+    cap_add:
+      - SYS_PTRACE
+    pid: host
+    privileged: true
+    environment:
+      NRIA_LICENSE_KEY: ${NRIA_LICENSE_KEY}
+      NRIA_DISPLAY_NAME: ${NRIA_DISPLAY_NAME:-upload-service}
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      upload-service:
+        condition: service_healthy
+    networks:
+      - upload-service-network
+
+volumes:
+  postgres_data:
+    driver: local
+  localstack_data:
+    driver: local
+
+networks:
+  upload-service-network:
+    driver: bridge
