@@ -25,12 +25,6 @@
 
 </td><td valign="top" width="50%">
 
-## 🎫 Jira Card Relacionada
-
-<!-- REQUIRED: Formato: [ABC-123](https://solfacil.atlassian.net/browse/ABC-123) -->
-
-- [ABC-123](https://solfacil.atlassian.net/browse/ABC-123)
-
 ## 💥 Breaking Changes
 
 - [ ] **Não** introduz breaking changes
