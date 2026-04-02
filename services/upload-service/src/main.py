@@ -71,7 +71,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(analise_router, prefix="/api/v1")
+app.include_router(analise_router, prefix="/v1")
 app.include_router(health_router)
 
 

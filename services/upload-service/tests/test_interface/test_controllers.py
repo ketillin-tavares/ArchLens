@@ -23,7 +23,7 @@ from src.interface.controllers.v1.analise_controller import router as analise_ro
 def app() -> FastAPI:
     """Create a test FastAPI app with the analise router."""
     app = FastAPI()
-    app.include_router(analise_router, prefix="/api/v1")
+    app.include_router(analise_router, prefix="/v1")
 
     # Add exception handlers
     @app.exception_handler(ArquivoInvalidoError)
@@ -56,7 +56,7 @@ async def async_client(app: FastAPI) -> AsyncClient:
 
 
 class TestSubmitDiagramController:
-    """Tests for POST /api/v1/analises endpoint."""
+    """Tests for POST /v1/analises endpoint."""
 
     @pytest.mark.asyncio
     async def test_submit_diagram_400_invalid_file_type(self, async_client: AsyncClient) -> None:
@@ -91,7 +91,7 @@ class TestSubmitDiagramController:
             # Act
             content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             response = await async_client.post(
-                "/api/v1/analises",
+                "/v1/analises",
                 files={"file": ("documento.docx", file, content_type)},
             )
 
@@ -133,7 +133,7 @@ class TestSubmitDiagramController:
 
             # Act
             response = await async_client.post(
-                "/api/v1/analises",
+                "/v1/analises",
                 files={"file": ("grande.png", file, "image/png")},
             )
 
@@ -144,7 +144,7 @@ class TestSubmitDiagramController:
 
 
 class TestGetAnalysisStatusController:
-    """Tests for GET /api/v1/analises/{id} endpoint."""
+    """Tests for GET /v1/analises/{id} endpoint."""
 
     @pytest.mark.asyncio
     async def test_get_analysis_status_200_success(self, async_client: AsyncClient) -> None:
@@ -175,7 +175,7 @@ class TestGetAnalysisStatusController:
             )
 
             # Act
-            response = await async_client.get(f"/api/v1/analises/{analise_id}")
+            response = await async_client.get(f"/v1/analises/{analise_id}")
 
             # Assert
             assert response.status_code == 200
@@ -203,7 +203,7 @@ class TestGetAnalysisStatusController:
             mock_analise_repo_instance.buscar_por_id.return_value = None
 
             # Act
-            response = await async_client.get(f"/api/v1/analises/{analise_id}")
+            response = await async_client.get(f"/v1/analises/{analise_id}")
 
             # Assert
             assert response.status_code == 404
@@ -235,7 +235,7 @@ class TestGetAnalysisStatusController:
             )
 
             # Act
-            response = await async_client.get(f"/api/v1/analises/{analise_id}")
+            response = await async_client.get(f"/v1/analises/{analise_id}")
 
             # Assert
             assert response.status_code == 200
@@ -267,7 +267,7 @@ class TestGetAnalysisStatusController:
             )
 
             # Act
-            response = await async_client.get(f"/api/v1/analises/{analise_id}")
+            response = await async_client.get(f"/v1/analises/{analise_id}")
 
             # Assert
             assert response.status_code == 200
@@ -301,7 +301,7 @@ class TestGetAnalysisStatusController:
             )
 
             # Act
-            response = await async_client.get(f"/api/v1/analises/{analise_id}")
+            response = await async_client.get(f"/v1/analises/{analise_id}")
 
             # Assert
             assert response.status_code == 200
