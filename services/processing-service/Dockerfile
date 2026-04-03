@@ -25,6 +25,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 ENV NEW_RELIC_CONFIG_FILE=/app/newrelic.ini
 
-EXPOSE 8002
+EXPOSE 8001
 
-CMD ["newrelic-admin", "run-program", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["newrelic-admin", "run-program", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8001"]
