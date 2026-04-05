@@ -26,7 +26,7 @@ class ReportWriterAgent:
             model_name=settings.llm.model_name,
             provider=provider,
         )
-        self._agent: Agent[None, MarkdownReportOutput] = Agent(  # type: ignore[assignment]
+        self._agent: Agent[None, MarkdownReportOutput] = Agent[None, MarkdownReportOutput](
             model=model,
             system_prompt=REPORT_WRITER_SYSTEM_PROMPT,
             output_type=MarkdownReportOutput,
