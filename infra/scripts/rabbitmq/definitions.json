@@ -1,0 +1,146 @@
+{
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "users": [
+    {
+      "name": "archlens",
+      "password": "archlens_dev",
+      "tags": ["administrator"]
+    }
+  ],
+  "permissions": [
+    {
+      "user": "archlens",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "analise.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "analise.events.dlx",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "processing-service.pipeline",
+      "vhost": "/",
+      "durable": true,
+      "arguments": {
+        "x-dead-letter-exchange": "analise.events.dlx",
+        "x-dead-letter-routing-key": "dlq.processamento"
+      }
+    },
+    {
+      "name": "report-service.reports",
+      "vhost": "/",
+      "durable": true,
+      "arguments": {
+        "x-dead-letter-exchange": "analise.events.dlx",
+        "x-dead-letter-routing-key": "dlq.relatorio"
+      }
+    },
+    {
+      "name": "upload-service.status-updates",
+      "vhost": "/",
+      "durable": true,
+      "arguments": {
+        "x-dead-letter-exchange": "analise.events.dlx",
+        "x-dead-letter-routing-key": "dlq.status"
+      }
+    },
+    {
+      "name": "processing-service.pipeline.dlq",
+      "vhost": "/",
+      "durable": true
+    },
+    {
+      "name": "report-service.reports.dlq",
+      "vhost": "/",
+      "durable": true
+    },
+    {
+      "name": "upload-service.status-updates.dlq",
+      "vhost": "/",
+      "durable": true
+    }
+  ],
+  "bindings": [
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "processing-service.pipeline",
+      "destination_type": "queue",
+      "routing_key": "analise.diagrama.enviado"
+    },
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "report-service.reports",
+      "destination_type": "queue",
+      "routing_key": "analise.processamento.concluida"
+    },
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "upload-service.status-updates",
+      "destination_type": "queue",
+      "routing_key": "analise.processamento.iniciado"
+    },
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "upload-service.status-updates",
+      "destination_type": "queue",
+      "routing_key": "analise.processamento.concluida"
+    },
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "upload-service.status-updates",
+      "destination_type": "queue",
+      "routing_key": "analise.processamento.falhou"
+    },
+    {
+      "source": "analise.events",
+      "vhost": "/",
+      "destination": "upload-service.status-updates",
+      "destination_type": "queue",
+      "routing_key": "analise.relatorio.gerado"
+    },
+    {
+      "source": "analise.events.dlx",
+      "vhost": "/",
+      "destination": "processing-service.pipeline.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.processamento"
+    },
+    {
+      "source": "analise.events.dlx",
+      "vhost": "/",
+      "destination": "report-service.reports.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.relatorio"
+    },
+    {
+      "source": "analise.events.dlx",
+      "vhost": "/",
+      "destination": "upload-service.status-updates.dlq",
+      "destination_type": "queue",
+      "routing_key": "dlq.status"
+    }
+  ]
+}

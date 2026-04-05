@@ -1,0 +1,1057 @@
+{
+	"info": {
+		"_postman_id": "archlens-e2e-collection",
+		"name": "ArchLens - API Collection",
+		"description": "Coleção completa para testar o fluxo end-to-end do ArchLens.\n\n## Fluxo Principal\n1. **POST** Upload de diagrama → recebe `analise_id`\n2. **GET** Polling do status da análise → aguardar `concluido`\n3. **GET** Consultar processamento (componentes e riscos)\n4. **GET** Consultar relatório gerado\n\n## Ambientes\n- **Kong Gateway** (porta 8000) — ponto de entrada unificado\n- **Acesso Direto** (portas 8010, 8011, 8012) — debug individual\n\n## Variáveis\n- `{{base_url}}` — URL base do gateway ou serviço direto\n- `{{analise_id}}` — preenchido automaticamente após upload",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			},
+			{
+				"key": "value",
+				"value": "{{kong_api_key}}",
+				"type": "string"
+			},
+			{
+				"key": "in",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "analise_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "kong_api_key",
+			"value": "",
+			"type": "string",
+			"description": "Kong API Key para autenticação via header X-API-Key"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Checks",
+			"description": "Endpoints de saúde de todos os serviços e infraestrutura.",
+			"item": [
+				{
+					"name": "Upload Service - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/upload/health",
+							"host": ["{{base_url}}"],
+							"path": ["upload", "health"]
+						},
+						"description": "Verifica a saúde do Upload Service e suas dependências (database, rabbitmq, s3)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Upload Service is healthy', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('healthy');",
+									"    pm.expect(json.service).to.eql('upload-service');",
+									"    pm.expect(json.dependencies).to.have.property('database');",
+									"    pm.expect(json.dependencies).to.have.property('rabbitmq');",
+									"    pm.expect(json.dependencies).to.have.property('s3');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Processing Service - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/processing/health",
+							"host": ["{{base_url}}"],
+							"path": ["processing", "health"]
+						},
+						"description": "Verifica a saúde do Processing Service e suas dependências (database, rabbitmq, llm_api)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Processing Service is healthy', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('healthy');",
+									"    pm.expect(json.service).to.eql('processing-service');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Report Service - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/report/health",
+							"host": ["{{base_url}}"],
+							"path": ["report", "health"]
+						},
+						"description": "Verifica a saúde do Report Service e suas dependências (database, rabbitmq)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Report Service is healthy', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('healthy');",
+									"    pm.expect(json.service).to.eql('report-service');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "RabbitMQ Management - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:15672/api/overview",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "15672",
+							"path": ["api", "overview"]
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{"key": "username", "value": "archlens"},
+								{"key": "password", "value": "archlens_dev"}
+							]
+						},
+						"description": "Verifica o status do RabbitMQ via Management API."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('RabbitMQ is running', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "LiteLLM - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:4000/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "4000",
+							"path": ["health"]
+						},
+						"description": "Verifica a saúde do LiteLLM (proxy LLM)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('LiteLLM is healthy', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "LocalStack S3 - List Buckets",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:4566/_localstack/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "4566",
+							"path": ["_localstack", "health"]
+						},
+						"description": "Verifica o status do LocalStack (S3 local)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('LocalStack is running', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Fluxo Completo (Happy Path)",
+			"description": "Fluxo end-to-end completo: upload → polling → processamento → relatório.\n\nExecute as requests na ordem para testar o pipeline inteiro.",
+			"item": [
+				{
+					"name": "1. Upload Diagrama",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Upload aceito com status 202', function () {",
+									"    pm.response.to.have.status(202);",
+									"});",
+									"",
+									"pm.test('Resposta contém analise_id', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('analise_id');",
+									"    pm.expect(json.status).to.eql('recebido');",
+									"    pm.expect(json).to.have.property('criado_em');",
+									"",
+									"    // Salva analise_id para as próximas requests",
+									"    pm.collectionVariables.set('analise_id', json.analise_id);",
+									"    console.log('analise_id salvo:', json.analise_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "Selecione um arquivo PNG, JPEG ou PDF (max 10MB)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/analises",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "analises"]
+						},
+						"description": "Envia um diagrama de arquitetura para análise.\n\n**Tipos aceitos:** image/png, image/jpeg, application/pdf\n**Tamanho máximo:** 10MB\n\nO `analise_id` retornado é salvo automaticamente na variável `{{analise_id}}` para uso nas próximas requests."
+					},
+					"response": [
+						{
+							"name": "202 - Upload aceito",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": ""
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/analises",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "analises"]
+								}
+							},
+							"status": "Accepted",
+							"code": 202,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"analise_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"status\": \"recebido\",\n    \"criado_em\": \"2026-04-04T12:00:00Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "2. Polling Status da Análise",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Consulta de status retorna 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Resposta contém campos esperados', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('id');",
+									"    pm.expect(json).to.have.property('diagrama_id');",
+									"    pm.expect(json).to.have.property('status');",
+									"    pm.expect(json).to.have.property('criado_em');",
+									"    pm.expect(json).to.have.property('atualizado_em');",
+									"",
+									"    var validStatuses = ['recebido', 'processando', 'concluido', 'erro'];",
+									"    pm.expect(validStatuses).to.include(json.status);",
+									"",
+									"    console.log('Status atual:', json.status);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "analises", "{{analise_id}}"]
+						},
+						"description": "Consulta o status de uma análise pelo ID.\n\n**Status possíveis:**\n- `recebido` — diagrama recebido, aguardando processamento\n- `processando` — LLM está analisando o diagrama\n- `concluido` — análise finalizada com sucesso\n- `erro` — falha durante o processamento\n\nRepita esta request (polling) até o status ser `concluido` ou `erro`."
+					},
+					"response": [
+						{
+							"name": "200 - Status recebido",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "analises", "{{analise_id}}"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"diagrama_id\": \"660e8400-e29b-41d4-a716-446655440000\",\n    \"status\": \"recebido\",\n    \"erro_detalhe\": null,\n    \"criado_em\": \"2026-04-04T12:00:00Z\",\n    \"atualizado_em\": \"2026-04-04T12:00:00Z\"\n}"
+						},
+						{
+							"name": "200 - Status concluido",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "analises", "{{analise_id}}"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"diagrama_id\": \"660e8400-e29b-41d4-a716-446655440000\",\n    \"status\": \"concluido\",\n    \"erro_detalhe\": null,\n    \"criado_em\": \"2026-04-04T12:00:00Z\",\n    \"atualizado_em\": \"2026-04-04T12:00:05Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "3. Consultar Processamento",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Processamento retorna 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Resposta contém componentes e riscos', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('analise_id');",
+									"    pm.expect(json).to.have.property('status');",
+									"    pm.expect(json).to.have.property('componentes');",
+									"    pm.expect(json).to.have.property('riscos');",
+									"    pm.expect(json.componentes).to.be.an('array');",
+									"    pm.expect(json.riscos).to.be.an('array');",
+									"",
+									"    console.log('Componentes encontrados:', json.componentes.length);",
+									"    console.log('Riscos encontrados:', json.riscos.length);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/processamentos/{{analise_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+						},
+						"description": "Consulta o resultado do processamento de uma análise.\n\nRetorna os componentes de arquitetura identificados e os riscos encontrados pelo LLM."
+					},
+					"response": [
+						{
+							"name": "200 - Processamento concluído",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{base_url}}/api/v1/processamentos/{{analise_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"analise_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"status\": \"concluido\",\n    \"iniciado_em\": \"2026-04-04T12:00:01Z\",\n    \"concluido_em\": \"2026-04-04T12:00:05Z\",\n    \"componentes\": [\n        {\n            \"id\": \"770e8400-e29b-41d4-a716-446655440000\",\n            \"nome\": \"API Gateway\",\n            \"tipo\": \"api_gateway\",\n            \"confianca\": 0.95,\n            \"metadata\": {\"descricao\": \"Ponto de entrada da aplicação\"}\n        },\n        {\n            \"id\": \"880e8400-e29b-41d4-a716-446655440000\",\n            \"nome\": \"PostgreSQL\",\n            \"tipo\": \"database\",\n            \"confianca\": 0.90,\n            \"metadata\": {\"descricao\": \"Banco de dados relacional principal\"}\n        }\n    ],\n    \"riscos\": [\n        {\n            \"id\": \"990e8400-e29b-41d4-a716-446655440000\",\n            \"descricao\": \"Ponto único de falha no banco de dados\",\n            \"severidade\": \"alta\",\n            \"componentes_afetados\": [\"PostgreSQL\"],\n            \"recomendacao\": {\"descricao\": \"Configurar réplica de leitura\", \"prioridade\": \"alta\"}\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "4. Consultar Relatório",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Relatório retorna 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Resposta contém campos do relatório', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('id');",
+									"    pm.expect(json).to.have.property('analise_id');",
+									"    pm.expect(json).to.have.property('titulo');",
+									"    pm.expect(json).to.have.property('resumo');",
+									"    pm.expect(json).to.have.property('conteudo');",
+									"    pm.expect(json).to.have.property('criado_em');",
+									"",
+									"    console.log('Relatório:', json.titulo);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/relatorios/{{analise_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "relatorios", "{{analise_id}}"]
+						},
+						"description": "Consulta o relatório gerado para uma análise.\n\nO relatório só estará disponível após o status da análise ser `concluido`."
+					},
+					"response": [
+						{
+							"name": "200 - Relatório gerado",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{base_url}}/api/v1/relatorios/{{analise_id}}",
+									"host": ["{{base_url}}"],
+									"path": ["api", "v1", "relatorios", "{{analise_id}}"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"id\": \"aa0e8400-e29b-41d4-a716-446655440000\",\n    \"analise_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"titulo\": \"Análise Arquitetural - Diagrama de Microsserviços\",\n    \"resumo\": \"Foram identificados 5 componentes e 2 riscos arquiteturais no diagrama analisado.\",\n    \"conteudo\": {\n        \"total_componentes\": 5,\n        \"total_riscos\": 2,\n        \"componentes_por_tipo\": {\"service\": 3, \"database\": 1, \"api_gateway\": 1},\n        \"riscos_por_severidade\": {\"alta\": 1, \"media\": 1}\n    },\n    \"criado_em\": \"2026-04-04T12:00:06Z\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Testes de Erro",
+			"description": "Testes de validação e cenários de falha.",
+			"item": [
+				{
+					"name": "Upload - Tipo de arquivo inválido",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Este teste requer envio de um arquivo com tipo não suportado",
+									"// Ex: arquivo .txt, .csv, .doc, etc."
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Arquivo inválido retorna 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.include('Tipo de arquivo não suportado');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "Selecione um arquivo NÃO suportado (ex: .txt, .csv)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/analises",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "analises"]
+						},
+						"description": "Testa o envio de um arquivo com tipo não suportado.\n\nEnvie um arquivo .txt, .csv ou qualquer tipo que não seja PNG, JPEG ou PDF.\n\n**Esperado:** HTTP 400 com mensagem de erro."
+					},
+					"response": [
+						{
+							"name": "400 - Tipo não suportado",
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Tipo de arquivo não suportado. Use: image/png, image/jpeg, application/pdf\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload - Arquivo muito grande",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Arquivo grande retorna 413', function () {",
+									"    pm.response.to.have.status(413);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.include('tamanho máximo');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "",
+									"description": "Selecione um arquivo PNG/JPEG/PDF maior que 10MB"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/analises",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "analises"]
+						},
+						"description": "Testa o envio de um arquivo que excede o tamanho máximo de 10MB.\n\n**Esperado:** HTTP 413 com mensagem de erro."
+					},
+					"response": [
+						{
+							"name": "413 - Tamanho excedido",
+							"status": "Request Entity Too Large",
+							"code": 413,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Arquivo excede o tamanho máximo de 10MB\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Status - Análise inexistente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Análise inexistente retorna 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/analises/00000000-0000-0000-0000-000000000000",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "analises", "00000000-0000-0000-0000-000000000000"]
+						},
+						"description": "Testa consulta de status com um ID inexistente.\n\n**Esperado:** HTTP 404."
+					},
+					"response": [
+						{
+							"name": "404 - Análise não encontrada",
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Análise não encontrada\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Processamento - Análise inexistente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Processamento inexistente retorna 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/processamentos/00000000-0000-0000-0000-000000000000",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "processamentos", "00000000-0000-0000-0000-000000000000"]
+						},
+						"description": "Testa consulta de processamento com um ID inexistente.\n\n**Esperado:** HTTP 404."
+					},
+					"response": [
+						{
+							"name": "404 - Processamento não encontrado",
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Processamento não encontrado para esta análise\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Relatório - Análise inexistente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Relatório inexistente retorna 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/relatorios/00000000-0000-0000-0000-000000000000",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "relatorios", "00000000-0000-0000-0000-000000000000"]
+						},
+						"description": "Testa consulta de relatório com um ID inexistente.\n\n**Esperado:** HTTP 404."
+					},
+					"response": [
+						{
+							"name": "404 - Relatório não encontrado",
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Relatório ainda não gerado para esta análise\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Acesso Direto (sem Gateway)",
+			"description": "Endpoints acessados diretamente nos serviços, sem passar pelo Kong.\nÚtil para debug e desenvolvimento.",
+			"auth": {
+				"type": "noauth"
+			},
+			"item": [
+				{
+					"name": "Upload - Health (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8010/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8010",
+							"path": ["health"]
+						},
+						"description": "Health check direto no Upload Service (porta 8010)."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload - POST Diagrama (direto)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 202) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('analise_id', json.analise_id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": ""
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8010/v1/analises",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8010",
+							"path": ["v1", "analises"]
+						},
+						"description": "Upload direto no Upload Service (porta 8010).\nPath: /v1/analises"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload - GET Status (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8010/v1/analises/{{analise_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8010",
+							"path": ["v1", "analises", "{{analise_id}}"]
+						},
+						"description": "Consulta de status direto no Upload Service (porta 8010).\nPath: /v1/analises/{analise_id}"
+					},
+					"response": []
+				},
+				{
+					"name": "Processing - Health (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8011/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8011",
+							"path": ["health"]
+						},
+						"description": "Health check direto no Processing Service (porta 8011)."
+					},
+					"response": []
+				},
+				{
+					"name": "Processing - GET Resultado (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8011/api/v1/processamentos/{{analise_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8011",
+							"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+						},
+						"description": "Consulta de processamento direto no Processing Service (porta 8011).\nPath: /api/v1/processamentos/{analise_id}"
+					},
+					"response": []
+				},
+				{
+					"name": "Report - Health (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8012/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8012",
+							"path": ["health"]
+						},
+						"description": "Health check direto no Report Service (porta 8012)."
+					},
+					"response": []
+				},
+				{
+					"name": "Report - GET Relatório (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8012/v1/relatorios/{{analise_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8012",
+							"path": ["v1", "relatorios", "{{analise_id}}"]
+						},
+						"description": "Consulta de relatório direto no Report Service (porta 8012).\nPath: /v1/relatorios/{analise_id}"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Infraestrutura",
+			"description": "Endpoints para verificar e depurar a infraestrutura compartilhada.",
+			"auth": {
+				"type": "noauth"
+			},
+			"item": [
+				{
+					"name": "RabbitMQ - Listar Queues",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:15672/api/queues/%2F",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "15672",
+							"path": ["api", "queues", "%2F"]
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{"key": "username", "value": "archlens"},
+								{"key": "password", "value": "archlens_dev"}
+							]
+						},
+						"description": "Lista todas as filas no RabbitMQ.\n\nFilas esperadas:\n- upload-service.status-updates\n- processing-service.diagrama-recebido\n- report-service.analise-concluida"
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Queues listadas com sucesso', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var queues = pm.response.json();",
+									"    pm.expect(queues).to.be.an('array');",
+									"    console.log('Total de queues:', queues.length);",
+									"    queues.forEach(function(q) {",
+									"        console.log('-', q.name, '| messages:', q.messages);",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "RabbitMQ - Listar Exchanges",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:15672/api/exchanges/%2F",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "15672",
+							"path": ["api", "exchanges", "%2F"]
+						},
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{"key": "username", "value": "archlens"},
+								{"key": "password", "value": "archlens_dev"}
+							]
+						},
+						"description": "Lista todos os exchanges no RabbitMQ.\n\nExchange esperado: analise.events (topic)"
+					},
+					"response": []
+				},
+				{
+					"name": "Kong - Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8001/status",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8001",
+							"path": ["status"]
+						},
+						"description": "Status do Kong API Gateway via Admin API (porta 8001)."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Kong está rodando', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Kong - Listar Routes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8001/routes",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8001",
+							"path": ["routes"]
+						},
+						"description": "Lista todas as routes configuradas no Kong."
+					},
+					"response": []
+				},
+				{
+					"name": "Kong - Listar Services",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8001/services",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8001",
+							"path": ["services"]
+						},
+						"description": "Lista todos os services registrados no Kong."
+					},
+					"response": []
+				},
+				{
+					"name": "Kong - Listar Plugins",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8001/plugins",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8001",
+							"path": ["plugins"]
+						},
+						"description": "Lista todos os plugins ativos no Kong (rate-limiting, CORS, request-size-limiting)."
+					},
+					"response": []
+				},
+				{
+					"name": "LocalStack - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:4566/_localstack/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "4566",
+							"path": ["_localstack", "health"]
+						},
+						"description": "Verifica o status do LocalStack e os serviços ativos (S3)."
+					},
+					"response": []
+				},
+				{
+					"name": "Vault - Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8200/v1/sys/health",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8200",
+							"path": ["v1", "sys", "health"]
+						},
+						"description": "Verifica o status do HashiCorp Vault."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

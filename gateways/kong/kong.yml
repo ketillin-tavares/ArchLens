@@ -1,0 +1,86 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  # ── Upload Service ──
+  - name: upload-service
+    url: http://upload-service:8000
+    routes:
+      - name: upload-analises
+        paths:
+          - /v1/analises
+        strip_path: false
+        methods:
+          - GET
+          - POST
+      - name: upload-health
+        paths:
+          - /upload
+        strip_path: true
+        methods:
+          - GET
+
+  # ── Report Service ──
+  - name: report-service
+    url: http://report-service:8002
+    routes:
+      - name: report-relatorios
+        paths:
+          - /v1/relatorios
+        strip_path: false
+        methods:
+          - GET
+      - name: report-health
+        paths:
+          - /report
+        strip_path: true
+        methods:
+          - GET
+
+  # ── Processing Service (debug/interno) ──
+  - name: processing-service
+    url: http://processing-service:8001
+    routes:
+      - name: processing-debug
+        paths:
+          - /v1/processamentos
+        strip_path: false
+        methods:
+          - GET
+      - name: processing-health
+        paths:
+          - /processing
+        strip_path: true
+        methods:
+          - GET
+
+# ── Plugins Globais ──
+plugins:
+  # Rate limiting: 30 requests/min por IP
+  - name: rate-limiting
+    config:
+      minute: 30
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+
+  # CORS: permitir todas as origens (dev)
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - OPTIONS
+      headers:
+        - Content-Type
+        - Authorization
+        - X-API-Key
+      max_age: 3600
+
+  # Limitar tamanho do request a 10MB
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10
+      size_unit: megabytes

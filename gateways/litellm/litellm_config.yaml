@@ -1,0 +1,176 @@
+# ══════════════════════════════════════════════════════════════
+#  LiteLLM Proxy — ArchLens Configuration
+# ══════════════════════════════════════════════════════════════
+#
+#  Primário:  Gemini 3.1 Flash Lite Preview via Google API (grátis)
+#  Fallback:  Gemini 2.5 Flash via Google API (grátis)
+#
+#  Virtual key para o processing-service com budget limit.
+#  Cache in-memory para evitar chamadas duplicadas em dev.
+#  Guardrails de PII gratuitos via Presidio.
+# ══════════════════════════════════════════════════════════════
+
+model_list:
+
+  # ── archlens-vision (Extractor Agent — precisa de vision) ────────
+
+  # Primário: Gemini 3.1 Flash Lite Preview (grátis, suporta vision + tool_call)
+  - model_name: "archlens-vision"
+    litellm_params:
+      model: "gemini/gemini-3.1-flash-lite-preview"
+      api_key: "os.environ/GEMINI_API_KEY"
+      max_tokens: 4096
+      temperature: 0.1
+      timeout: 120
+      num_retries: 1                   # 1 retry antes de ir pro fallback
+    model_info:
+      description: "Gemini 3.1 Flash Lite Preview — vision — Google API"
+
+  # Fallback: Gemini 2.5 Flash (grátis)
+  - model_name: "archlens-vision-fallback"
+    litellm_params:
+      model: "gemini/gemini-2.5-flash"
+      api_key: "os.environ/GEMINI_API_KEY"
+      max_tokens: 4096
+      temperature: 0.1
+      timeout: 60
+      num_retries: 2
+    model_info:
+      description: "Gemini 2.5 Flash — fallback vision"
+
+  # ── archlens-analyzer (Analyzer Agent — só texto) ────────────────
+
+  # Primário: Gemini 3.1 Flash Lite Preview (grátis, suporta tool_call)
+  - model_name: "archlens-analyzer"
+    litellm_params:
+      model: "gemini/gemini-3.1-flash-lite-preview"
+      api_key: "os.environ/GEMINI_API_KEY"
+      max_tokens: 4096
+      temperature: 0.1
+      timeout: 120
+      num_retries: 1
+    model_info:
+      description: "Gemini 3.1 Flash Lite Preview — text-only — Google API"
+
+  # Fallback: Gemini 2.5 Flash (text-only)
+  - model_name: "archlens-analyzer-fallback"
+    litellm_params:
+      model: "gemini/gemini-2.5-flash"
+      api_key: "os.environ/GEMINI_API_KEY"
+      max_tokens: 4096
+      temperature: 0.1
+      timeout: 60
+      num_retries: 2
+    model_info:
+      description: "Gemini 2.5 Flash — fallback text-only"
+
+# ══════════════════════════════════════════════════════════════
+#  CACHE — evita chamadas duplicadas ao LLM
+# ══════════════════════════════════════════════════════════════
+#
+#  In-memory cache: sem Redis, sem infra extra.
+#  Útil em dev: se enviar o mesmo diagrama 2x, a segunda resposta
+#  vem do cache instantaneamente ($0 e <1ms).
+#
+#  Em produção: trocar para Redis para compartilhar cache entre
+#  réplicas do processing-service.
+
+litellm_settings:
+  cache: true
+  cache_params:
+    type: "local"                       # in-memory (sem Redis)
+    ttl: 3600                           # 1 hora — mesmo diagrama não muda
+    supported_call_types:
+      - "acompletion"                   # só cachear chat completions
+      - "completion"
+
+  # ── Resiliência global ──
+  drop_params: true                     # ignora params não suportados pelo modelo
+  set_verbose: false
+  request_timeout: 120                  # timeout global máximo
+  num_retries: 1                        # retries globais (override por modelo acima)
+  retry_after: 3                        # segundos entre retries
+  allowed_fails: 3                      # após 3 falhas, cooldown do modelo
+  cooldown_time: 30                     # 30s de cooldown
+
+  # ── Fallbacks explícitos ──
+  #  Se Gemini 3.1 Flash Lite falhar, aciona fallback → Gemini 2.5 Flash.
+  context_window_fallbacks:
+    - "archlens-vision": ["archlens-vision-fallback"]
+    - "archlens-analyzer": ["archlens-analyzer-fallback"]
+  content_policy_fallbacks:
+    - "archlens-vision": ["archlens-vision-fallback"]
+    - "archlens-analyzer": ["archlens-analyzer-fallback"]
+
+# ══════════════════════════════════════════════════════════════
+#  GUARDRAILS — 3 camadas de proteção gratuita
+# ══════════════════════════════════════════════════════════════
+#
+#  1. Prompt Injection (pre_call) — detecta manipulação no prompt
+#  2. Presidio PII (pre_call) — mascara dados sensíveis
+#  3. JSON Validator (post_call) — garante que a resposta é JSON válido
+#
+#  Todos rodam localmente, sem API key externa, custo zero.
+
+guardrails:
+
+  # ── 1. Prompt Injection Detection (pre_call) ──────────────
+  #  Diagramas podem conter texto embutido que o modelo vision lê.
+  #  Um atacante poderia criar um diagrama com "ignore instructions..."
+  #  Este guardrail detecta padrões de injection em PT e EN.
+  - guardrail_name: "prompt-injection"
+    litellm_params:
+      guardrail: guardrails.prompt_injection.PromptInjectionDetector
+      mode: "pre_call"
+
+  # ── 2. Presidio PII Masking (pre_call) ────────────────────
+  #  Diagramas podem conter IPs internos, emails, nomes de servidores.
+  #  Presidio mascara antes de enviar ao LLM.
+  - guardrail_name: "pii-masking"
+    litellm_params:
+      guardrail: presidio
+      mode: "pre_call"
+      output_parse_pii: true            # desmascara na resposta
+      presidio_ad_hoc_recognizers: null
+      presidio_language: "pt"
+      pii_entities_config:
+        EMAIL_ADDRESS: "MASK"
+        PHONE_NUMBER: "MASK"
+        IP_ADDRESS: "MASK"
+        CREDIT_CARD: "MASK"
+        PERSON: "MASK"
+
+  # ── 3. JSON Response Validator (post_call) ────────────────
+  #  Valida que o LLM retornou JSON válido com as keys esperadas
+  #  (componentes, riscos). Se não, rejeita e LiteLLM tenta o fallback.
+  #  Também limpa markdown code blocks (```json...```) automaticamente.
+  - guardrail_name: "json-validator"
+    litellm_params:
+      guardrail: guardrails.json_validator.JsonResponseValidator
+      mode: "post_call"
+
+# ══════════════════════════════════════════════════════════════
+#  GENERAL SETTINGS
+# ══════════════════════════════════════════════════════════════
+
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  database_url: "os.environ/LITELLM_DATABASE_URL"
+
+  alerting: []
+
+# ══════════════════════════════════════════════════════════════
+#  ROUTER SETTINGS
+# ══════════════════════════════════════════════════════════════
+
+router_settings:
+  routing_strategy: "simple-shuffle"
+  allowed_fails: 3                      # após 3 falhas consecutivas → cooldown
+  cooldown_time: 30                     # 30s antes de tentar de novo
+  enable_pre_call_checks: true          # verifica context window antes de enviar
+
+  # ── Fallbacks cross-group ──
+  #  Se o Gemini 3.1 Flash Lite falhar, redireciona para o Gemini 2.5 Flash.
+  fallbacks:
+    - "archlens-vision": ["archlens-vision-fallback"]
+    - "archlens-analyzer": ["archlens-analyzer-fallback"]
