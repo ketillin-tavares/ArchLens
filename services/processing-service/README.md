@@ -214,7 +214,7 @@ uv run mypy src tests
 
 ## Endpoints da API
 
-### GET /api/v1/processamentos/{diagrama_id}
+### GET /v1/processamentos/{analise_id}
 
 Recupera resultado de processamento/análise de um diagrama específico.
 

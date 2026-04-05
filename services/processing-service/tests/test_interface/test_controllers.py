@@ -63,14 +63,14 @@ class TestProcessamentoController:
 
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 # Act
-                response = await client.get(f"/api/v1/processamentos/{analise_id}")
+                response = await client.get(f"/v1/processamentos/{analise_id}")
 
                 # Assert
                 assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_get_processamento_not_found(self) -> None:
-        """Test GET /api/v1/processamentos/{analise_id} returns 404 when not found."""
+        """Test GET /v1/processamentos/{analise_id} returns 404 when not found."""
         # Arrange
         analise_id = uuid.uuid4()
         transport = ASGITransport(app=app)
@@ -94,7 +94,7 @@ class TestProcessamentoController:
 
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 # Act
-                response = await client.get(f"/api/v1/processamentos/{analise_id}")
+                response = await client.get(f"/v1/processamentos/{analise_id}")
 
                 # Assert
                 assert response.status_code == 404
@@ -107,7 +107,7 @@ class TestProcessamentoController:
 
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             # Act
-            response = await client.get("/api/v1/processamentos/not-a-uuid")
+            response = await client.get("/v1/processamentos/not-a-uuid")
 
             # Assert
             assert response.status_code == 422  # Validation error

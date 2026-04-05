@@ -67,12 +67,17 @@ class SQLAlchemyAnaliseRepository(AnaliseRepository):
             diagrama_id=model.diagrama_id,
             status=StatusAnalise(model.status),
             erro_detalhe=model.erro_detalhe,
+            relatorio_s3_key=model.relatorio_s3_key,
             criado_em=model.criado_em,
             atualizado_em=model.atualizado_em,
         )
 
     async def atualizar_status(
-        self, analise_id: uuid.UUID, novo_status: StatusAnalise, erro_detalhe: str | None = None
+        self,
+        analise_id: uuid.UUID,
+        novo_status: StatusAnalise,
+        erro_detalhe: str | None = None,
+        relatorio_s3_key: str | None = None,
     ) -> bool:
         """
         Atualiza o status de uma análise de forma idempotente (não regredir).
@@ -81,6 +86,7 @@ class SQLAlchemyAnaliseRepository(AnaliseRepository):
             analise_id: ID da análise.
             novo_status: Novo status a ser aplicado.
             erro_detalhe: Detalhes do erro (para status ERRO).
+            relatorio_s3_key: Chave S3 do relatório Markdown (para status ANALISADO).
 
         Returns:
             True se atualizado, False se ignorado por idempotência.
@@ -98,6 +104,8 @@ class SQLAlchemyAnaliseRepository(AnaliseRepository):
         }
         if novo_status == StatusAnalise.ERRO and erro_detalhe:
             values["erro_detalhe"] = erro_detalhe
+        if novo_status == StatusAnalise.ANALISADO and relatorio_s3_key:
+            values["relatorio_s3_key"] = relatorio_s3_key
 
         stmt = update(AnaliseModel).where(AnaliseModel.id == analise_id).values(**values)
         await self._session.execute(stmt)

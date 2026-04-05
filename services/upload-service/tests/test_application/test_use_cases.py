@@ -6,13 +6,21 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.application.dtos import AnaliseResponse, DiagramaUploadResponse
-from src.application.use_cases import GetAnalysisStatus, HandleStatusUpdate, RetryAnalysis, SubmitDiagram
+from src.application.dtos import AnaliseResponse, DiagramaUploadResponse, DownloadRelatorioResponse
+from src.application.use_cases import (
+    DownloadRelatorio,
+    GetAnalysisStatus,
+    HandleStatusUpdate,
+    RetryAnalysis,
+    SubmitDiagram,
+)
 from src.domain.entities import Analise, Diagrama
 from src.domain.exceptions import (
+    AnaliseNaoConcluidaError,
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RelatorioIndisponivelError,
     RetentativaInvalidaError,
 )
 from src.domain.value_objects import ArquivoDiagrama, StatusAnalise
@@ -531,6 +539,38 @@ class TestHandleStatusUpdate:
         call_args = mock_repo.atualizar_status.call_args
         assert call_args.args[1] == StatusAnalise.ANALISADO
 
+    @pytest.mark.asyncio
+    async def test_handle_status_update_with_relatorio_s3_key(self) -> None:
+        """Test updating to ANALISADO status with relatorio S3 key."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        relatorio_s3_key = "reports/test-uuid-123.md"
+
+        analise = Analise(
+            id=analise_id,
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.EM_PROCESSAMENTO,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.buscar_por_id.return_value = analise
+        mock_repo.atualizar_status.return_value = True
+
+        use_case = HandleStatusUpdate(analise_repository=mock_repo)
+
+        # Act
+        await use_case.execute(
+            analise_id=str(analise_id),
+            novo_status="analisado",
+            relatorio_s3_key=relatorio_s3_key,
+        )
+
+        # Assert
+        mock_repo.atualizar_status.assert_called_once()
+        call_args = mock_repo.atualizar_status.call_args
+        assert call_args.args[1] == StatusAnalise.ANALISADO
+        assert call_args.args[3] == relatorio_s3_key
+
 
 class TestRetryAnalysis:
     """Tests for RetryAnalysis use case."""
@@ -827,3 +867,123 @@ class TestRetryAnalysis:
 
         # Verify event was not published
         mock_publisher.publish_event.assert_not_called()
+
+
+class TestDownloadRelatorio:
+    """Tests for DownloadRelatorio use case."""
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_happy_path(self) -> None:
+        """Test successful presigned URL generation for download."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        s3_key = "reports/test-uuid.md"
+        presigned_url = "https://s3.example.com/reports/test-uuid.md?signed=abc"
+
+        analise = Analise(
+            id=analise_id,
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.ANALISADO,
+            relatorio_s3_key=s3_key,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.buscar_por_id.return_value = analise
+
+        mock_file_storage = AsyncMock()
+        mock_file_storage.generate_presigned_url.return_value = presigned_url
+
+        use_case = DownloadRelatorio(
+            analise_repository=mock_repo,
+            file_storage=mock_file_storage,
+        )
+
+        # Act
+        result = await use_case.execute(analise_id)
+
+        # Assert
+        assert isinstance(result, DownloadRelatorioResponse)
+        assert result.analise_id == analise_id
+        assert result.download_url == presigned_url
+        assert result.expires_in_seconds == 3600
+        assert result.formato == "text/markdown"
+        mock_file_storage.generate_presigned_url.assert_called_once_with(s3_key=s3_key, expires_in=3600)
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_not_found(self) -> None:
+        """Test AnaliseNaoEncontradaError when analysis does not exist."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        mock_repo = AsyncMock()
+        mock_repo.buscar_por_id.return_value = None
+
+        mock_file_storage = AsyncMock()
+
+        use_case = DownloadRelatorio(
+            analise_repository=mock_repo,
+            file_storage=mock_file_storage,
+        )
+
+        # Act & Assert
+        with pytest.raises(AnaliseNaoEncontradaError):
+            await use_case.execute(analise_id)
+
+        mock_file_storage.generate_presigned_url.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_not_concluded(self) -> None:
+        """Test AnaliseNaoConcluidaError when analysis is not ANALISADO."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        analise = Analise(
+            id=analise_id,
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.EM_PROCESSAMENTO,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.buscar_por_id.return_value = analise
+
+        mock_file_storage = AsyncMock()
+
+        use_case = DownloadRelatorio(
+            analise_repository=mock_repo,
+            file_storage=mock_file_storage,
+        )
+
+        # Act & Assert
+        with pytest.raises(AnaliseNaoConcluidaError):
+            await use_case.execute(analise_id)
+
+        mock_file_storage.generate_presigned_url.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_s3_key_missing(self) -> None:
+        """Test RelatorioIndisponivelError when s3_key is None."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        analise = Analise(
+            id=analise_id,
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.ANALISADO,
+            relatorio_s3_key=None,
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.buscar_por_id.return_value = analise
+
+        mock_file_storage = AsyncMock()
+
+        use_case = DownloadRelatorio(
+            analise_repository=mock_repo,
+            file_storage=mock_file_storage,
+        )
+
+        # Act & Assert
+        with pytest.raises(RelatorioIndisponivelError):
+            await use_case.execute(analise_id)
+
+        mock_file_storage.generate_presigned_url.assert_not_called()

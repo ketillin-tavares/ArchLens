@@ -73,6 +73,7 @@ class RetryAnalysis:
             diagrama_id=analise.diagrama_id,
             status=analise.status.value,
             erro_detalhe=analise.erro_detalhe,
+            relatorio_s3_key=analise.relatorio_s3_key,
             criado_em=analise.criado_em,
             atualizado_em=analise.atualizado_em,
         )

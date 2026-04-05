@@ -41,5 +41,6 @@ class GetReport:
             titulo=relatorio.titulo,
             resumo=relatorio.resumo,
             conteudo=relatorio.conteudo,
+            s3_key=relatorio.s3_key,
             criado_em=relatorio.criado_em,
         )

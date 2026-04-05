@@ -13,4 +13,5 @@ class RelatorioResponse(BaseModel):
     titulo: str = Field(..., description="Título do relatório")
     resumo: str = Field(..., description="Resumo descritivo do relatório")
     conteudo: dict[str, Any] = Field(..., description="Conteúdo estruturado do relatório")
+    s3_key: str | None = Field(default=None, description="Chave S3 do relatório Markdown (.md)")
     criado_em: datetime = Field(..., description="Data de criação do relatório")

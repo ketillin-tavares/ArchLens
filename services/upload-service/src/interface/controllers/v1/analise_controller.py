@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.dtos import AnaliseResponse, DiagramaUploadResponse
-from src.application.use_cases import GetAnalysisStatus, RetryAnalysis, SubmitDiagram
+from src.application.dtos import AnaliseResponse, DiagramaUploadResponse, DownloadRelatorioResponse
+from src.application.use_cases import DownloadRelatorio, GetAnalysisStatus, RetryAnalysis, SubmitDiagram
 from src.domain.value_objects import ArquivoDiagrama
 from src.infrastructure.database import get_session
 from src.infrastructure.messaging.shared import rabbitmq_publisher
@@ -76,6 +76,32 @@ async def get_analysis_status(
     """Consulta o status de uma análise pelo ID."""
     use_case = GetAnalysisStatus(
         analise_repository=SQLAlchemyAnaliseRepository(session),
+    )
+
+    return await use_case.execute(analise_id)
+
+
+@router.get(
+    "/{analise_id}/relatorio/download",
+    response_model=DownloadRelatorioResponse,
+    responses={
+        404: {"model": NotFoundResponse},
+        409: {"model": ConflictResponse},
+    },
+)
+async def download_relatorio(
+    analise_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DownloadRelatorioResponse:
+    """
+    Gera URL pré-assinada para download do relatório Markdown de uma análise concluída.
+
+    A análise deve estar com status 'analisado' e ter um relatório disponível no S3.
+    A URL gerada expira em 3600 segundos.
+    """
+    use_case = DownloadRelatorio(
+        analise_repository=SQLAlchemyAnaliseRepository(session),
+        file_storage=S3FileStorageGateway(),
     )
 
     return await use_case.execute(analise_id)

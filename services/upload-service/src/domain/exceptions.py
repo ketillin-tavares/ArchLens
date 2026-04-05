@@ -16,3 +16,11 @@ class AnaliseNaoEncontradaError(DomainError):
 
 class RetentativaInvalidaError(DomainError):
     """Lançada quando uma retentativa de análise é solicitada para um status não elegível."""
+
+
+class AnaliseNaoConcluidaError(DomainError):
+    """Lançada quando uma operação exige análise concluída mas o status atual não é 'analisado'."""
+
+
+class RelatorioIndisponivelError(DomainError):
+    """Lançada quando o relatório Markdown não está disponível (s3_key ausente)."""

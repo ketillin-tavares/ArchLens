@@ -17,3 +17,16 @@ class FileStorage(abc.ABC):
         Returns:
             Caminho do arquivo armazenado.
         """
+
+    @abc.abstractmethod
+    async def generate_presigned_url(self, s3_key: str, expires_in: int = 3600) -> str:
+        """
+        Gera URL pré-assinada para download de um arquivo do S3.
+
+        Args:
+            s3_key: Chave (path) do arquivo no bucket S3.
+            expires_in: Tempo de expiração em segundos (padrão: 3600).
+
+        Returns:
+            URL pré-assinada para download direto.
+        """

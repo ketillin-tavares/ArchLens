@@ -30,6 +30,7 @@ class SQLAlchemyRelatorioRepository(RelatorioRepository):
             titulo=relatorio.titulo,
             resumo=relatorio.resumo,
             conteudo=relatorio.conteudo,
+            s3_key=relatorio.s3_key,
             criado_em=relatorio.criado_em,
         )
         self._session.add(model)
@@ -59,6 +60,7 @@ class SQLAlchemyRelatorioRepository(RelatorioRepository):
             titulo=model.titulo or "",
             resumo=model.resumo or "",
             conteudo=model.conteudo,
+            s3_key=model.s3_key,
             criado_em=model.criado_em,
         )
 

@@ -3,7 +3,12 @@
 import time
 from unittest.mock import MagicMock, patch
 
-from src.infrastructure.observability.logging import _newrelic_linking_metadata, configure_logging
+from src.infrastructure.observability.logging import (
+    _newrelic_linking_metadata,
+    _newrelic_notice_error,
+    _uppercase_log_level,
+    configure_logging,
+)
 from src.infrastructure.observability.metrics import MetricsRecorder, _record_newrelic_metric
 
 
@@ -215,6 +220,101 @@ class TestLogging:
         # Verify JSON renderer is included
         processor_names = [type(p).__name__ for p in processors]
         assert "JSONRenderer" in processor_names
+
+
+class TestUppercaseLogLevel:
+    """Tests for _uppercase_log_level processor."""
+
+    def test_uppercase_log_level_converts_to_upper(self) -> None:
+        """Test that log_level is converted to uppercase."""
+        # Arrange
+        event_dict = {"log_level": "info", "message": "test"}
+
+        # Act
+        result = _uppercase_log_level(None, "info", event_dict)
+
+        # Assert
+        assert result["log_level"] == "INFO"
+
+    def test_uppercase_log_level_without_log_level_key(self) -> None:
+        """Test that event_dict is returned unchanged when log_level is absent."""
+        # Arrange
+        event_dict = {"message": "test"}
+
+        # Act
+        result = _uppercase_log_level(None, "info", event_dict)
+
+        # Assert
+        assert result == {"message": "test"}
+        assert "log_level" not in result
+
+
+class TestNewRelicNoticeError:
+    """Tests for _newrelic_notice_error processor."""
+
+    def test_returns_event_dict_when_agent_is_none(self) -> None:
+        """Test that event_dict is returned unchanged when agent is None."""
+        # Arrange
+        with patch("src.infrastructure.observability.logging._newrelic_agent", None):
+            event_dict = {"log_level": "error", "message": "test"}
+
+            # Act
+            result = _newrelic_notice_error(None, "error", event_dict)
+
+            # Assert
+            assert result == event_dict
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_calls_notice_error_on_error_level(self, mock_agent: MagicMock) -> None:
+        """Test that notice_error is called for error-level logs."""
+        # Arrange
+        event_dict = {"log_level": "error", "message": "something failed"}
+
+        # Act
+        result = _newrelic_notice_error(None, "error", event_dict)
+
+        # Assert
+        mock_agent.notice_error.assert_called_once_with()
+        assert result == event_dict
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_calls_notice_error_with_exc_info(self, mock_agent: MagicMock) -> None:
+        """Test that notice_error is called with exc_info when available."""
+        # Arrange
+        exc_info = (ValueError, ValueError("test"), None)
+        event_dict = {"log_level": "error", "message": "fail", "exc_info": exc_info}
+
+        # Act
+        result = _newrelic_notice_error(None, "error", event_dict)
+
+        # Assert
+        mock_agent.notice_error.assert_called_once_with(error=exc_info)
+        assert result == event_dict
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_does_not_call_notice_error_on_info_level(self, mock_agent: MagicMock) -> None:
+        """Test that notice_error is not called for non-error levels."""
+        # Arrange
+        event_dict = {"log_level": "info", "message": "all good"}
+
+        # Act
+        result = _newrelic_notice_error(None, "info", event_dict)
+
+        # Assert
+        mock_agent.notice_error.assert_not_called()
+        assert result == event_dict
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_calls_notice_error_on_critical_level(self, mock_agent: MagicMock) -> None:
+        """Test that notice_error is called for critical-level logs."""
+        # Arrange
+        event_dict = {"log_level": "critical", "message": "critical fail"}
+
+        # Act
+        _newrelic_notice_error(None, "critical", event_dict)
+
+        # Assert
+        mock_agent.notice_error.assert_called_once_with()
 
 
 class TestNewRelicLinkingMetadata:

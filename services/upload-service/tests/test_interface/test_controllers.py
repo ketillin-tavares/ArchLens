@@ -11,9 +11,11 @@ from httpx import ASGITransport, AsyncClient
 
 from src.domain.entities import Analise
 from src.domain.exceptions import (
+    AnaliseNaoConcluidaError,
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RelatorioIndisponivelError,
     RetentativaInvalidaError,
 )
 from src.domain.value_objects import StatusAnalise
@@ -50,6 +52,18 @@ def app() -> FastAPI:
         from fastapi.responses import JSONResponse
 
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(AnaliseNaoConcluidaError)
+    async def analise_nao_concluida_handler(request, exc):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(RelatorioIndisponivelError)
+    async def relatorio_indisponivel_handler(request, exc):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
 
     return app
 
@@ -444,6 +458,113 @@ class TestRetryAnalysisController:
 
             # Act
             response = await async_client.post(f"/v1/analises/{analise_id}/retry")
+
+            # Assert
+            assert response.status_code == 409
+            data = response.json()
+            assert "detail" in data
+
+
+class TestDownloadRelatorioController:
+    """Tests for GET /v1/analises/{id}/relatorio/download endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_200_success(self, async_client: AsyncClient) -> None:
+        """Test successful download URL generation returns 200 OK."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        presigned_url = "https://s3.example.com/reports/test.md?signed=abc"
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.S3FileStorageGateway") as mock_file_storage,
+        ):
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+
+            mock_analise_repo_instance.buscar_por_id.return_value = Analise(
+                id=analise_id,
+                diagrama_id=uuid.uuid4(),
+                status=StatusAnalise.ANALISADO,
+                relatorio_s3_key="reports/test.md",
+            )
+
+            mock_file_storage_instance = AsyncMock()
+            mock_file_storage.return_value = mock_file_storage_instance
+            mock_file_storage_instance.generate_presigned_url.return_value = presigned_url
+
+            # Act
+            response = await async_client.get(f"/v1/analises/{analise_id}/relatorio/download")
+
+            # Assert
+            assert response.status_code == 200
+            data = response.json()
+            assert data["analise_id"] == str(analise_id)
+            assert data["download_url"] == presigned_url
+            assert data["expires_in_seconds"] == 3600
+            assert data["formato"] == "text/markdown"
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_404_not_found(self, async_client: AsyncClient) -> None:
+        """Test download for non-existent analysis returns 404."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.S3FileStorageGateway") as mock_file_storage,
+        ):
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+            mock_analise_repo_instance.buscar_por_id.return_value = None
+
+            mock_file_storage_instance = AsyncMock()
+            mock_file_storage.return_value = mock_file_storage_instance
+
+            # Act
+            response = await async_client.get(f"/v1/analises/{analise_id}/relatorio/download")
+
+            # Assert
+            assert response.status_code == 404
+            data = response.json()
+            assert "detail" in data
+
+    @pytest.mark.asyncio
+    async def test_download_relatorio_409_not_concluded(self, async_client: AsyncClient) -> None:
+        """Test download for non-concluded analysis returns 409."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.S3FileStorageGateway") as mock_file_storage,
+        ):
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+
+            mock_analise_repo_instance.buscar_por_id.return_value = Analise(
+                id=analise_id,
+                diagrama_id=uuid.uuid4(),
+                status=StatusAnalise.EM_PROCESSAMENTO,
+            )
+
+            mock_file_storage_instance = AsyncMock()
+            mock_file_storage.return_value = mock_file_storage_instance
+
+            # Act
+            response = await async_client.get(f"/v1/analises/{analise_id}/relatorio/download")
 
             # Assert
             assert response.status_code == 409

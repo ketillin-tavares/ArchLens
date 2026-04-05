@@ -189,7 +189,7 @@ uv run mypy src --strict
 
 ## Endpoints da API
 
-### POST /api/v1/analises
+### POST /v1/analises
 
 Recebe um diagrama de arquitetura via upload e inicia o fluxo de análise.
 
@@ -211,7 +211,7 @@ Recebe um diagrama de arquitetura via upload e inicia o fluxo de análise.
 - `400 Bad Request`: Tipo de arquivo não suportado
 - `413 Payload Too Large`: Arquivo excede 10 MB
 
-### GET /api/v1/analises/{analise_id}
+### GET /v1/analises/{analise_id}
 
 Consulta o status de uma análise.
 
@@ -229,6 +229,42 @@ Consulta o status de uma análise.
 
 **Erros:**
 - `404 Not Found`: Análise não encontrada
+
+### GET /v1/analises/{analise_id}/relatorio/download
+
+Gera URL pré-assinada para download do relatório Markdown. A análise deve estar com status 'analisado'. A URL expira em 3600 segundos.
+
+**Response (200 OK):**
+```json
+{
+  "download_url": "https://s3.archlens.local/archlens-diagramas/analise-550e8400.md?...",
+  "expira_em": 3600
+}
+```
+
+**Erros:**
+- `404 Not Found`: Análise não encontrada
+- `409 Conflict`: Análise não concluída ou relatório ainda não gerado
+
+### POST /v1/analises/{analise_id}/retry
+
+Retenta o processamento de uma análise com status 'erro'.
+
+**Response (202 Accepted):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "diagrama_id": "660e8400-e29b-41d4-a716-446655440001",
+  "status": "recebido",
+  "erro_detalhe": null,
+  "criado_em": "2026-03-30T10:15:30Z",
+  "atualizado_em": "2026-03-30T10:16:00Z"
+}
+```
+
+**Erros:**
+- `404 Not Found`: Análise não encontrada
+- `409 Conflict`: Estado inválido para retry (apenas status 'erro' pode ser retentado)
 
 ### GET /health
 

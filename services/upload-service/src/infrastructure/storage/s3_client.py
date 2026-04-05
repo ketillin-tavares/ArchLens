@@ -83,6 +83,33 @@ class S3StorageClient:
             )
             return await response["Body"].read()
 
+    async def generate_presigned_url(self, s3_key: str, expires_in: int = 3600) -> str:
+        """
+        Gera URL pré-assinada para download de um arquivo do S3.
+
+        Args:
+            s3_key: Chave (path) do arquivo no bucket S3.
+            expires_in: Tempo de expiração em segundos.
+
+        Returns:
+            URL pré-assinada para download direto.
+        """
+        async with self._session.client(**self._get_client_kwargs()) as s3:
+            url: str = await s3.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": self._settings.bucket_name,
+                    "Key": s3_key,
+                },
+                ExpiresIn=expires_in,
+            )
+        logger.info(
+            "presigned_url_gerada",
+            s3_key=s3_key,
+            expires_in=expires_in,
+        )
+        return url
+
     async def check_health(self) -> bool:
         """Verifica se o bucket S3 está acessível."""
         try:

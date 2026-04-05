@@ -37,6 +37,7 @@ class AnaliseModel(Base):
         default="recebido",
     )
     erro_detalhe: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relatorio_s3_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

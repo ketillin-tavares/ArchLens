@@ -1,11 +1,17 @@
 import json
 from collections.abc import Callable, Coroutine
+from types import ModuleType
 from typing import Any
 
 import aio_pika
 import structlog
 
 from src.environment import get_settings
+
+try:
+    import newrelic.agent as _newrelic_agent
+except ImportError:
+    _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
 
 logger = structlog.get_logger()
 
@@ -61,6 +67,10 @@ class RabbitMQConsumer:
         """
         async with message.process():
             try:
+                if _newrelic_agent is not None:
+                    trace_headers = message.headers if isinstance(message.headers, dict) else {}
+                    _newrelic_agent.accept_distributed_trace_headers(trace_headers, transport_type="AMQP")
+
                 body = json.loads(message.body.decode())
                 event_type = body.get("event_type", "")
                 payload = body.get("payload", {})

@@ -1,11 +1,17 @@
 import json
 from collections.abc import Callable, Coroutine
+from types import ModuleType
 from typing import Any
 
 import aio_pika
 import structlog
 
 from src.environment import get_settings
+
+try:
+    import newrelic.agent as _newrelic_agent
+except ImportError:
+    _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
 
 logger = structlog.get_logger()
 
@@ -29,11 +35,12 @@ class RabbitMQConsumer:
 
     def __init__(
         self,
-        status_update_handler: Callable[[str, str, str | None], Coroutine[Any, Any, None]],
+        status_update_handler: Callable[[str, str, str | None, str | None], Coroutine[Any, Any, None]],
     ) -> None:
         """
         Args:
-            status_update_handler: Async callable que recebe (analise_id, novo_status, erro_detalhe).
+            status_update_handler: Async callable que recebe
+                (analise_id, novo_status, erro_detalhe, relatorio_s3_key).
         """
         self._settings = get_settings().rabbitmq
         self._connection: aio_pika.abc.AbstractRobustConnection | None = None
@@ -74,6 +81,10 @@ class RabbitMQConsumer:
         """
         async with message.process():
             try:
+                if _newrelic_agent is not None:
+                    trace_headers = message.headers if isinstance(message.headers, dict) else {}
+                    _newrelic_agent.accept_distributed_trace_headers(trace_headers, transport_type="AMQP")
+
                 body = json.loads(message.body.decode())
                 event_type = body.get("event_type", "")
                 payload = body.get("payload", {})
@@ -87,8 +98,9 @@ class RabbitMQConsumer:
                     return
 
                 erro_detalhe = payload.get("erro_detalhe") if event_type == "AnaliseFalhou" else None
+                relatorio_s3_key = payload.get("s3_key") if event_type == "RelatorioGerado" else None
 
-                await self._handler(analise_id, novo_status, erro_detalhe)
+                await self._handler(analise_id, novo_status, erro_detalhe, relatorio_s3_key)
 
             except Exception:
                 logger.exception("erro_processando_evento", message_body=message.body.decode()[:500])

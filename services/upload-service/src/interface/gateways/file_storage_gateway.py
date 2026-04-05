@@ -21,3 +21,16 @@ class S3FileStorageGateway(FileStorage):
             Caminho do arquivo armazenado.
         """
         return await self._client.upload_file(file_bytes, storage_path, content_type)
+
+    async def generate_presigned_url(self, s3_key: str, expires_in: int = 3600) -> str:
+        """
+        Gera URL pré-assinada para download de um arquivo do S3.
+
+        Args:
+            s3_key: Chave (path) do arquivo no bucket S3.
+            expires_in: Tempo de expiração em segundos.
+
+        Returns:
+            URL pré-assinada para download direto.
+        """
+        return await self._client.generate_presigned_url(s3_key, expires_in)

@@ -9,6 +9,8 @@ import pytest
 from src.domain.entities import Relatorio
 from src.infrastructure.messaging.publisher import RabbitMQPublisher
 from src.interface.gateways.event_publisher_gateway import RabbitMQEventPublisherGateway
+from src.interface.gateways.file_storage_gateway import S3FileStorageGateway
+from src.interface.gateways.markdown_report_writer_gateway import ReportWriterGateway
 from src.interface.gateways.relatorio_repository_gateway import SQLAlchemyRelatorioRepository
 
 
@@ -184,6 +186,7 @@ class TestSQLAlchemyRelatorioRepository:
         mock_model.titulo = "Test Report"
         mock_model.resumo = "Test Summary"
         mock_model.conteudo = {"key": "value"}
+        mock_model.s3_key = None
         mock_model.criado_em = now
 
         mock_execute.scalar_one_or_none.return_value = mock_model
@@ -201,6 +204,7 @@ class TestSQLAlchemyRelatorioRepository:
         assert result.titulo == "Test Report"
         assert result.resumo == "Test Summary"
         assert result.conteudo == {"key": "value"}
+        assert result.s3_key is None
 
     async def test_buscar_por_analise_id_handles_null_titulo_and_resumo(self) -> None:
         """Test that buscar_por_analise_id handles null titulo and resumo."""
@@ -220,6 +224,7 @@ class TestSQLAlchemyRelatorioRepository:
         mock_model.titulo = None  # Null titulo
         mock_model.resumo = None  # Null resumo
         mock_model.conteudo = {"key": "value"}
+        mock_model.s3_key = None
         mock_model.criado_em = now
 
         mock_execute.scalar_one_or_none.return_value = mock_model
@@ -286,3 +291,129 @@ class TestSQLAlchemyRelatorioRepository:
 
         # Assert
         assert result is False
+
+
+class TestS3FileStorageGateway:
+    """Tests for the S3FileStorageGateway adapter."""
+
+    def test_gateway_initialization_with_client(self) -> None:
+        """Test initializing gateway with a client."""
+        # Arrange
+        mock_client = AsyncMock()
+
+        # Act
+        gateway = S3FileStorageGateway(client=mock_client)
+
+        # Assert
+        assert gateway._client == mock_client
+
+    def test_gateway_initialization_without_client(self) -> None:
+        """Test initializing gateway without a client creates default S3StorageClient."""
+        # Arrange & Act
+        from src.infrastructure.storage.s3_client import S3StorageClient
+
+        gateway = S3FileStorageGateway()
+
+        # Assert
+        assert gateway._client is not None
+        assert isinstance(gateway._client, S3StorageClient)
+
+    async def test_upload_text_delegates_to_client(self) -> None:
+        """Test that upload_text delegates to the underlying S3 client."""
+        # Arrange
+        mock_client = AsyncMock()
+        mock_client.upload_text = AsyncMock(return_value="test-key")
+        gateway = S3FileStorageGateway(client=mock_client)
+
+        s3_key = "reports/test-report.md"
+        content = "# Test Report"
+        content_type = "text/markdown; charset=utf-8"
+
+        # Act
+        result = await gateway.upload_text(s3_key, content, content_type)
+
+        # Assert
+        assert result == "test-key"
+        mock_client.upload_text.assert_called_once_with(s3_key, content, content_type)
+
+    async def test_check_health_delegates_to_client(self) -> None:
+        """Test that check_health delegates to the underlying S3 client."""
+        # Arrange
+        mock_client = AsyncMock()
+        mock_client.check_health = AsyncMock(return_value=True)
+        gateway = S3FileStorageGateway(client=mock_client)
+
+        # Act
+        result = await gateway.check_health()
+
+        # Assert
+        assert result is True
+        mock_client.check_health.assert_called_once()
+
+    async def test_check_health_returns_false_on_failure(self) -> None:
+        """Test that check_health returns False when client check fails."""
+        # Arrange
+        mock_client = AsyncMock()
+        mock_client.check_health = AsyncMock(return_value=False)
+        gateway = S3FileStorageGateway(client=mock_client)
+
+        # Act
+        result = await gateway.check_health()
+
+        # Assert
+        assert result is False
+
+
+class TestReportWriterGateway:
+    """Tests for the ReportWriterGateway adapter."""
+
+    def test_gateway_initialization_with_agent(self) -> None:
+        """Test initializing gateway with an agent."""
+        # Arrange
+        mock_agent = AsyncMock()
+
+        # Act
+        gateway = ReportWriterGateway(agent=mock_agent)
+
+        # Assert
+        assert gateway._agent == mock_agent
+
+    def test_gateway_initialization_without_agent(self) -> None:
+        """Test initializing gateway without an agent creates default ReportWriterAgent."""
+        # Arrange & Act
+        from src.infrastructure.agents.report_writer_agent import ReportWriterAgent
+
+        gateway = ReportWriterGateway()
+
+        # Assert
+        assert gateway._agent is not None
+        assert isinstance(gateway._agent, ReportWriterAgent)
+
+    async def test_generate_delegates_to_agent(self) -> None:
+        """Test that generate delegates to the underlying ReportWriterAgent."""
+        # Arrange
+        from src.infrastructure.agents.schemas import MarkdownReportOutput
+
+        mock_agent = AsyncMock()
+        mock_output = MarkdownReportOutput(markdown="# Test Report\n" + "x" * 100)
+        mock_agent.run = AsyncMock(return_value=mock_output)
+        gateway = ReportWriterGateway(agent=mock_agent)
+
+        titulo = "Test Report"
+        resumo = "Test Summary"
+        componentes = [{"id": "c1", "nome": "API"}]
+        riscos = [{"id": "r1", "severidade": "alta"}]
+        estatisticas = {"total": 1}
+
+        # Act
+        result = await gateway.generate(titulo, resumo, componentes, riscos, estatisticas)
+
+        # Assert
+        assert result == "# Test Report\n" + "x" * 100
+        mock_agent.run.assert_called_once_with(
+            titulo=titulo,
+            resumo=resumo,
+            componentes=componentes,
+            riscos=riscos,
+            estatisticas=estatisticas,
+        )
