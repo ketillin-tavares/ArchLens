@@ -7,7 +7,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from src.application.use_cases import HandleStatusUpdate
-from src.domain.exceptions import AnaliseNaoEncontradaError, ArquivoInvalidoError, ArquivoTamanhoExcedidoError
+from src.domain.exceptions import (
+    AnaliseNaoEncontradaError,
+    ArquivoInvalidoError,
+    ArquivoTamanhoExcedidoError,
+    RetentativaInvalidaError,
+)
 from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
@@ -91,3 +96,9 @@ async def arquivo_tamanho_handler(request: Request, exc: ArquivoTamanhoExcedidoE
 async def analise_nao_encontrada_handler(request: Request, exc: AnaliseNaoEncontradaError) -> JSONResponse:
     """Traduz AnaliseNaoEncontradaError para HTTP 404."""
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(RetentativaInvalidaError)
+async def retentativa_invalida_handler(request: Request, exc: RetentativaInvalidaError) -> JSONResponse:
+    """Traduz RetentativaInvalidaError para HTTP 409."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})

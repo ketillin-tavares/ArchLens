@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column("analise_id", sa.Uuid(), nullable=False, unique=True),
         sa.Column("titulo", sa.String(255), nullable=True),
         sa.Column("resumo", sa.Text(), nullable=True),
-        sa.Column("conteudo", sa.dialects.postgresql.JSONB(), nullable=False),
+        sa.Column("conteudo", sa.dialects.postgresql.JSONB(), nullable=False),  # ty: ignore[possibly-missing-submodule]
         sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )

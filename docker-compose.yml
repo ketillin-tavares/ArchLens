@@ -60,22 +60,22 @@ services:
     networks:
       - archlens
 
-  vault:
-    image: hashicorp/vault:1.21
-    container_name: vault
-    hostname: vault
-    ports:
-      - "8200:8200"
-    environment:
-      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
-    env_file:
-      - .env
-    cap_add:
-      - IPC_LOCK
-    volumes:
-      - vault_data:/vault/data
-    networks:
-      - archlens
+  # vault:
+  #   image: hashicorp/vault:1.21
+  #   container_name: vault
+  #   hostname: vault
+  #   ports:
+  #     - "8200:8200"
+  #   environment:
+  #     VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+  #   env_file:
+  #     - .env
+  #   cap_add:
+  #     - IPC_LOCK
+  #   volumes:
+  #     - vault_data:/vault/data
+  #   networks:
+  #     - archlens
 
   # ── Migrations ────────────────────────────────────────────
 
@@ -198,25 +198,6 @@ services:
     networks:
       - archlens
 
-  # ── AI / LLM ─────────────────────────────────────────────
-
-  ollama:
-    image: alpine/ollama:0.18.2
-    container_name: ollama
-    hostname: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-    networks:
-      - archlens
-
   # ── Guardrails ────────────────────────────────────────────
 
   presidio-analyzer:
@@ -272,8 +253,6 @@ services:
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     depends_on:
       postgres:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
       presidio-analyzer:
         condition: service_healthy

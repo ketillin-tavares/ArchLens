@@ -2,9 +2,7 @@ import uuid
 
 import structlog
 
-from src.application.ports import EventPublisher, FileStorage, ImageProcessor, LLMClient
-from src.application.sanity_checks import check_sanity
-from src.application.validation import validate_and_parse
+from src.application.ports import AnalysisPipeline, EventPublisher, FileStorage, ImageProcessor
 from src.domain.entities import Componente, Processamento, Risco, StatusProcessamento
 from src.domain.events import AnaliseConcluida, AnaliseFalhou, ProcessamentoIniciado
 from src.domain.exceptions import (
@@ -33,13 +31,13 @@ class ProcessDiagram:
         event_publisher: EventPublisher,
         file_storage: FileStorage,
         image_processor: ImageProcessor,
-        llm_client: LLMClient,
+        analysis_pipeline: AnalysisPipeline,
     ) -> None:
         self._repo = processamento_repository
         self._event_publisher = event_publisher
         self._file_storage = file_storage
         self._image_processor = image_processor
-        self._llm_client = llm_client
+        self._analysis_pipeline = analysis_pipeline
 
     async def execute(self, analise_id: str, diagrama_storage_path: str, content_type: str) -> None:
         """
@@ -132,12 +130,12 @@ class ProcessDiagram:
         except Exception as exc:
             raise ImageProcessingError(f"Falha ao normalizar imagem: {exc}") from exc
 
-        raw_response = await self._llm_client.analyze_image(image_b64)
-        logger.info("llm_resposta_recebida", response_length=len(raw_response))
-
-        analise_result = await validate_and_parse(raw_response, self._llm_client)
-
-        check_sanity(analise_result)
+        analise_result = await self._analysis_pipeline.run(image_b64)
+        logger.info(
+            "pipeline_concluido",
+            total_componentes=len(analise_result.componentes),
+            total_riscos=len(analise_result.riscos),
+        )
 
         componentes = [
             Componente(

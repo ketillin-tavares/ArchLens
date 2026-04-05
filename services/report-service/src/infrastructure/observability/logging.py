@@ -11,6 +11,8 @@ try:
 except ImportError:
     _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
 
+_ERROR_LEVELS = frozenset({"error", "critical", "exception"})
+
 
 def configure_logging(log_level: str = "INFO") -> None:
     """
@@ -22,12 +24,15 @@ def configure_logging(log_level: str = "INFO") -> None:
     processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
+        _uppercase_log_level,
         structlog.processors.StackInfoRenderer(),
         structlog.dev.set_exc_info,
+        structlog.processors.format_exc_info,
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
     if _newrelic_agent is not None:
+        processors.append(_newrelic_notice_error)
         processors.append(_newrelic_linking_metadata)
 
     processors.append(structlog.processors.JSONRenderer())
@@ -39,6 +44,33 @@ def configure_logging(log_level: str = "INFO") -> None:
         logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
         cache_logger_on_first_use=True,
     )
+
+
+def _uppercase_log_level(
+    logger: Any, method_name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    """Converte o log_level para uppercase (ex: 'info' → 'INFO')."""
+    if "log_level" in event_dict:
+        event_dict["log_level"] = event_dict["log_level"].upper()
+    return event_dict
+
+
+def _newrelic_notice_error(
+    logger: Any, method_name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    """Registra exceções no APM error rate do New Relic via notice_error()."""
+    if _newrelic_agent is None:
+        return event_dict
+
+    log_level = event_dict.get("log_level", "").lower()
+    if log_level in _ERROR_LEVELS:
+        exc_info = event_dict.get("exc_info")
+        if exc_info:
+            _newrelic_agent.notice_error(error=exc_info)
+        else:
+            _newrelic_agent.notice_error()
+
+    return event_dict
 
 
 def _newrelic_linking_metadata(

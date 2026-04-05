@@ -1,8 +1,11 @@
+from typing import cast
+
 import pybreaker
 import structlog
 from pydantic_ai import Agent
 from pydantic_ai.messages import ImageUrl
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.domain.exceptions import (
@@ -61,10 +64,11 @@ class PydanticAILLMClient:
         settings = get_settings().llm
         self._model = OpenAIChatModel(
             model_name=settings.model_name,
-            provider="openai",
-            base_url=settings.base_url,
-            api_key=settings.api_key,
-        )  # type: ignore
+            provider=OpenAIProvider(
+                base_url=settings.base_url,
+                api_key=settings.api_key,
+            ),
+        )
         self._temperature = settings.temperature
         self._max_tokens = settings.max_tokens
 
@@ -93,8 +97,8 @@ class PydanticAILLMClient:
             agent = Agent(
                 model=self._model,
                 system_prompt=SYSTEM_PROMPT,
-                result_type=AnaliseResultSchema,
-            )  # type: ignore
+                output_type=AnaliseResultSchema,
+            )
 
             result = await agent.run(
                 [
@@ -102,7 +106,8 @@ class PydanticAILLMClient:
                     ImageUrl(url=f"data:image/png;base64,{image_b64}"),
                 ]
             )
-            return result.model_dump_json()  # type: ignore
+            output = cast(AnaliseResultSchema, result.output)
+            return output.model_dump_json()
         except Exception as exc:
             classified = _classify_llm_exception(exc)
             raise classified from exc
@@ -128,8 +133,8 @@ class PydanticAILLMClient:
             agent = Agent(
                 model=self._model,
                 system_prompt=CORRECTION_SYSTEM_PROMPT,
-                result_type=AnaliseResultSchema,
-            )  # type: ignore
+                output_type=AnaliseResultSchema,
+            )
 
             user_message = CORRECTION_USER_PROMPT_TEMPLATE.format(
                 original_json=original_json,
@@ -137,7 +142,8 @@ class PydanticAILLMClient:
             )
 
             result = await agent.run(user_message)
-            return result.model_dump_json()  # type: ignore
+            output = cast(AnaliseResultSchema, result.output)
+            return output.model_dump_json()
         except Exception as exc:
             classified = _classify_llm_exception(exc)
             raise classified from exc

@@ -12,3 +12,7 @@ class ArquivoTamanhoExcedidoError(DomainError):
 
 class AnaliseNaoEncontradaError(DomainError):
     """Lançada quando uma análise não é encontrada no repositório."""
+
+
+class RetentativaInvalidaError(DomainError):
+    """Lançada quando uma retentativa de análise é solicitada para um status não elegível."""

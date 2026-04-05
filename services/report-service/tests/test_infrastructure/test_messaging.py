@@ -33,7 +33,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
 
@@ -43,14 +43,14 @@ class TestRabbitMQPublisher:
         # Assert
         mock_connect.assert_called_once()
         mock_connection.channel.assert_called_once()
-        mock_channel.declare_exchange.assert_called_once()
+        mock_channel.get_exchange.assert_called_once()
         assert publisher._connection == mock_connection
         assert publisher._channel == mock_channel
         assert publisher._exchange == mock_exchange
 
     @patch("src.infrastructure.messaging.publisher.aio_pika.connect_robust")
     async def test_connect_declares_topic_exchange(self, mock_connect: AsyncMock) -> None:
-        """Test that connect declares a TOPIC exchange."""
+        """Test that connect retrieves the exchange using the correct name."""
         # Arrange
         mock_connection = AsyncMock()
         mock_channel = AsyncMock()
@@ -58,7 +58,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
 
@@ -66,9 +66,10 @@ class TestRabbitMQPublisher:
         await publisher.connect()
 
         # Assert
-        call_args = mock_channel.declare_exchange.call_args
-        assert call_args[0][1] == aio_pika.ExchangeType.TOPIC
-        assert call_args[1]["durable"] is True
+        mock_channel.get_exchange.assert_called_once()
+        call_args = mock_channel.get_exchange.call_args
+        # Verify the exchange name is passed (default is "analise.events" from RabbitMQSettings)
+        assert call_args[0][0] == "analise.events"
 
     async def test_publish_event_raises_if_not_connected(self) -> None:
         """Test that publish_event raises if publisher not connected."""
@@ -89,7 +90,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
         await publisher.connect()
@@ -121,7 +122,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
         await publisher.connect()
@@ -148,7 +149,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
         await publisher.connect()
@@ -172,7 +173,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
         await publisher.connect()
@@ -201,7 +202,7 @@ class TestRabbitMQPublisher:
 
         mock_connect.return_value = mock_connection
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
 
         publisher = RabbitMQPublisher()
         await publisher.connect()

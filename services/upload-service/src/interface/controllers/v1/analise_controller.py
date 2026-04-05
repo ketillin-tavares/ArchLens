@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.dtos import AnaliseResponse, DiagramaUploadResponse
-from src.application.use_cases import GetAnalysisStatus, SubmitDiagram
+from src.application.use_cases import GetAnalysisStatus, RetryAnalysis, SubmitDiagram
 from src.domain.value_objects import ArquivoDiagrama
 from src.infrastructure.database import get_session
 from src.infrastructure.messaging.shared import rabbitmq_publisher
@@ -15,6 +15,7 @@ from src.interface.gateways.file_storage_gateway import S3FileStorageGateway
 from src.interface.presenters.error_presenter import (
     ArquivoInvalidoResponse,
     ArquivoTamanhoExcedidoResponse,
+    ConflictResponse,
     NotFoundResponse,
 )
 
@@ -75,6 +76,29 @@ async def get_analysis_status(
     """Consulta o status de uma análise pelo ID."""
     use_case = GetAnalysisStatus(
         analise_repository=SQLAlchemyAnaliseRepository(session),
+    )
+
+    return await use_case.execute(analise_id)
+
+
+@router.post(
+    "/{analise_id}/retry",
+    response_model=AnaliseResponse,
+    status_code=202,
+    responses={
+        404: {"model": NotFoundResponse},
+        409: {"model": ConflictResponse},
+    },
+)
+async def retry_analysis(
+    analise_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> AnaliseResponse:
+    """Retenta o processamento de uma análise que falhou."""
+    use_case = RetryAnalysis(
+        analise_repository=SQLAlchemyAnaliseRepository(session),
+        diagrama_repository=SQLAlchemyDiagramaRepository(session),
+        event_publisher=_get_publisher_gateway(),
     )
 
     return await use_case.execute(analise_id)

@@ -58,7 +58,7 @@ async def _check_llm_api() -> str:
     try:
         settings = get_settings()
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{settings.llm.base_url}/health")
+            response = await client.get(f"{settings.llm.base_url}/health/readiness")
             if response.status_code == 200:
                 return "ok"
             return "degraded"

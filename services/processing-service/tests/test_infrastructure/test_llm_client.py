@@ -33,8 +33,9 @@ class TestPydanticAILLMClient:
         assert "correct_json" in methods
 
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    def test_llm_client_initialization(self, mock_get_settings, mock_model_class) -> None:
+    def test_llm_client_initialization(self, mock_get_settings, mock_provider_class, mock_model_class) -> None:
         """Test LLM client initialization with settings."""
         # Arrange
         mock_settings = MagicMock()
@@ -44,6 +45,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         # Act
@@ -54,11 +58,20 @@ class TestPydanticAILLMClient:
         assert client._temperature == 0.7
         assert client._max_tokens == 2000
 
+        # Verify OpenAIProvider was called with correct settings
+        mock_provider_class.assert_called_once_with(
+            base_url="http://localhost:4000",
+            api_key="test-key",
+        )
+
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    async def test_analyze_image_success(self, mock_get_settings, mock_model_class, mock_agent_class) -> None:
+    async def test_analyze_image_success(
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
+    ) -> None:
         """Test analyze_image successfully analyzes an image."""
         # Arrange
         mock_settings = MagicMock()
@@ -68,11 +81,16 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
+        mock_output = MagicMock()
+        mock_output.model_dump_json.return_value = '{"componentes": [], "riscos": []}'
         mock_result = MagicMock()
-        mock_result.model_dump_json.return_value = '{"componentes": [], "riscos": []}'
+        mock_result.output = mock_output
         mock_agent.run.return_value = mock_result
         mock_agent_class.return_value = mock_agent
 
@@ -87,8 +105,11 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    async def test_analyze_image_timeout_error(self, mock_get_settings, mock_model_class, mock_agent_class) -> None:
+    async def test_analyze_image_timeout_error(
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
+    ) -> None:
         """Test analyze_image raises LLMTimeoutError on timeout."""
         # Arrange
         mock_settings = MagicMock()
@@ -98,6 +119,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
@@ -113,8 +137,11 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    async def test_analyze_image_rate_limit_error(self, mock_get_settings, mock_model_class, mock_agent_class) -> None:
+    async def test_analyze_image_rate_limit_error(
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
+    ) -> None:
         """Test analyze_image raises LLMRateLimitError on rate limit."""
         # Arrange
         mock_settings = MagicMock()
@@ -124,6 +151,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
@@ -139,9 +169,10 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
     async def test_analyze_image_content_filter_error(
-        self, mock_get_settings, mock_model_class, mock_agent_class
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
     ) -> None:
         """Test analyze_image raises LLMContentFilterError on content filter."""
         # Arrange
@@ -152,6 +183,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
@@ -167,9 +201,10 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
     async def test_analyze_image_context_window_error(
-        self, mock_get_settings, mock_model_class, mock_agent_class
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
     ) -> None:
         """Test analyze_image raises LLMContextWindowError on context window."""
         # Arrange
@@ -180,6 +215,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
@@ -195,8 +233,11 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    async def test_correct_json_success(self, mock_get_settings, mock_model_class, mock_agent_class) -> None:
+    async def test_correct_json_success(
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
+    ) -> None:
         """Test correct_json successfully corrects JSON."""
         # Arrange
         mock_settings = MagicMock()
@@ -206,11 +247,16 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()
+        mock_output = MagicMock()
+        mock_output.model_dump_json.return_value = '{"componentes": [], "riscos": []}'
         mock_result = MagicMock()
-        mock_result.model_dump_json.return_value = '{"componentes": [], "riscos": []}'
+        mock_result.output = mock_output
         mock_agent.run.return_value = mock_result
         mock_agent_class.return_value = mock_agent
 
@@ -225,8 +271,11 @@ class TestPydanticAILLMClient:
     @pytest.mark.asyncio
     @patch("src.infrastructure.llm.llm_client.Agent")
     @patch("src.infrastructure.llm.llm_client.OpenAIChatModel")
+    @patch("src.infrastructure.llm.llm_client.OpenAIProvider")
     @patch("src.infrastructure.llm.llm_client.get_settings")
-    async def test_correct_json_error(self, mock_get_settings, mock_model_class, mock_agent_class) -> None:
+    async def test_correct_json_error(
+        self, mock_get_settings, mock_provider_class, mock_model_class, mock_agent_class
+    ) -> None:
         """Test correct_json raises error on failure."""
         # Arrange
         mock_settings = MagicMock()
@@ -236,6 +285,9 @@ class TestPydanticAILLMClient:
         mock_settings.llm.temperature = 0.7
         mock_settings.llm.max_tokens = 2000
         mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
         mock_model_class.return_value = MagicMock()
 
         mock_agent = AsyncMock()

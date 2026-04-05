@@ -26,3 +26,12 @@ class NotFoundResponse(BaseModel):
         default="Análise não encontrada",
         description="Mensagem de erro",
     )
+
+
+class ConflictResponse(BaseModel):
+    """Resposta de erro para operação em conflito com o estado atual (HTTP 409)."""
+
+    detail: str = Field(
+        default="Retentativa permitida apenas para análises com status 'erro'",
+        description="Mensagem de erro",
+    )

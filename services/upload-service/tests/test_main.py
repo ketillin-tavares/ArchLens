@@ -8,6 +8,7 @@ from src.domain.exceptions import (
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RetentativaInvalidaError,
 )
 from src.main import (
     _status_update_handler,
@@ -155,6 +156,12 @@ class TestExceptionHandlers:
         """Test AnaliseNaoEncontradaError exception handler."""
         # Arrange - just verify the handler is registered
         assert AnaliseNaoEncontradaError in app.exception_handlers
+
+    @pytest.mark.asyncio
+    async def test_retentativa_invalida_exception_handler(self) -> None:
+        """Test RetentativaInvalidaError exception handler."""
+        # Arrange - just verify the handler is registered
+        assert RetentativaInvalidaError in app.exception_handlers
 
 
 class TestLifespanContext:
