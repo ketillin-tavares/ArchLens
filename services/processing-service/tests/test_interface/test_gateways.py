@@ -215,6 +215,393 @@ class TestPydanticAILLMClientGateway:
         mock_client.correct_json.assert_called_once()
 
 
+class TestSingleCallPipelineGateway:
+    """Tests for the SingleCallPipelineGateway adapter."""
+
+    @patch("src.interface.gateways.analysis_pipeline_gateway.SingleCallPipeline")
+    def test_gateway_initialization(self, mock_pipeline_class) -> None:
+        """Test initializing the SingleCallPipelineGateway."""
+        # Arrange
+        mock_llm_client = AsyncMock()
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        # Act
+        from src.interface.gateways.analysis_pipeline_gateway import SingleCallPipelineGateway
+
+        gateway = SingleCallPipelineGateway(llm_client=mock_llm_client)
+
+        # Assert
+        assert gateway is not None
+        assert gateway._pipeline is not None
+        mock_pipeline_class.assert_called_once_with(llm_client=mock_llm_client)
+
+    @pytest.mark.asyncio
+    @patch("src.interface.gateways.analysis_pipeline_gateway.SingleCallPipeline")
+    async def test_run_delegates_to_pipeline(self, mock_pipeline_class, sample_analise_result) -> None:
+        """Test run method delegates to SingleCallPipeline."""
+        # Arrange
+        mock_llm_client = AsyncMock()
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = sample_analise_result
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        from src.interface.gateways.analysis_pipeline_gateway import SingleCallPipelineGateway
+
+        gateway = SingleCallPipelineGateway(llm_client=mock_llm_client)
+        image_b64 = "base64imagedata"
+
+        # Act
+        result = await gateway.run(image_b64)
+
+        # Assert
+        assert result == sample_analise_result
+        mock_pipeline_instance.run.assert_called_once_with(image_b64)
+
+    @pytest.mark.asyncio
+    @patch("src.interface.gateways.analysis_pipeline_gateway.SingleCallPipeline")
+    async def test_run_returns_analise_result_schema(self, mock_pipeline_class) -> None:
+        """Test run method returns valid AnaliseResultSchema."""
+        # Arrange
+        from src.domain.schemas import (
+            AnaliseResultSchema,
+            ComponenteMetadata,
+            ComponenteSchema,
+            RecomendacaoSchema,
+            RiscoSchema,
+            Severidade,
+            TipoComponente,
+        )
+
+        mock_llm_client = AsyncMock()
+        expected_result = AnaliseResultSchema(
+            componentes=[
+                ComponenteSchema(
+                    nome="API Gateway",
+                    tipo=TipoComponente.API_GATEWAY,
+                    confianca=0.95,
+                    metadata=ComponenteMetadata(descricao="Test"),
+                )
+            ],
+            riscos=[
+                RiscoSchema(
+                    descricao="Test risk",
+                    severidade=Severidade.ALTA,
+                    componentes_afetados=["API Gateway"],
+                    recomendacao=RecomendacaoSchema(
+                        descricao="Fix it",
+                        prioridade=Severidade.ALTA,
+                    ),
+                )
+            ],
+        )
+
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = expected_result
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        from src.interface.gateways.analysis_pipeline_gateway import SingleCallPipelineGateway
+
+        gateway = SingleCallPipelineGateway(llm_client=mock_llm_client)
+
+        # Act
+        result = await gateway.run("base64data")
+
+        # Assert
+        assert isinstance(result, AnaliseResultSchema)
+        assert len(result.componentes) == 1
+        assert len(result.riscos) == 1
+
+
+class TestMultiAgentPipelineGateway:
+    """Tests for the MultiAgentPipelineGateway adapter."""
+
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    def test_gateway_initialization(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class
+    ) -> None:
+        """Test initializing the MultiAgentPipelineGateway."""
+        # Arrange
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        # Act
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        gateway = MultiAgentPipelineGateway()
+
+        # Assert
+        assert gateway is not None
+        assert gateway._pipeline is not None
+        assert mock_provider_class.call_count == 1
+        assert mock_openai_class.call_count == 2
+        mock_pipeline_class.assert_called_once()
+
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    def test_gateway_initialization_reads_settings(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class
+    ) -> None:
+        """Test gateway initialization reads from settings."""
+        # Arrange
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = False
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        # Act
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        MultiAgentPipelineGateway()
+
+        # Assert
+        mock_get_settings.assert_called_once()
+
+        # Verify OpenAIProvider was called with correct settings
+        mock_provider_class.assert_called_once_with(
+            base_url="http://localhost:4000",
+            api_key="test-key",
+        )
+
+        # Verify OpenAIChatModel was called with correct settings
+        calls = mock_openai_class.call_args_list
+        assert len(calls) == 2
+
+        # First call (vision model)
+        assert calls[0][1]["model_name"] == "gpt-4-vision"
+        assert calls[0][1]["provider"] == mock_provider_instance
+
+        # Second call (analyzer model)
+        assert calls[1][1]["model_name"] == "gpt-4"
+        assert calls[1][1]["provider"] == mock_provider_instance
+
+        # Verify pipeline created with correct parameters
+        pipeline_call = mock_pipeline_class.call_args
+        assert pipeline_call[1]["vision_model"] == mock_vision_model
+        assert pipeline_call[1]["analyzer_model"] == mock_analyzer_model
+        assert pipeline_call[1]["enable_judge"] is False
+
+    @pytest.mark.asyncio
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    async def test_run_delegates_to_pipeline(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class, sample_analise_result
+    ) -> None:
+        """Test run method delegates to MultiAgentPipeline."""
+        # Arrange
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = sample_analise_result
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        gateway = MultiAgentPipelineGateway()
+        image_b64 = "base64imagedata"
+
+        # Act
+        result = await gateway.run(image_b64)
+
+        # Assert
+        assert result == sample_analise_result
+        mock_pipeline_instance.run.assert_called_once_with(image_b64)
+
+    @pytest.mark.asyncio
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    async def test_run_returns_analise_result_schema(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class
+    ) -> None:
+        """Test run method returns valid AnaliseResultSchema."""
+        # Arrange
+        from src.domain.schemas import (
+            AnaliseResultSchema,
+            ComponenteMetadata,
+            ComponenteSchema,
+            RecomendacaoSchema,
+            RiscoSchema,
+            Severidade,
+            TipoComponente,
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        expected_result = AnaliseResultSchema(
+            componentes=[
+                ComponenteSchema(
+                    nome="Database",
+                    tipo=TipoComponente.DATABASE,
+                    confianca=0.92,
+                    metadata=ComponenteMetadata(descricao="PostgreSQL"),
+                )
+            ],
+            riscos=[
+                RiscoSchema(
+                    descricao="Single point of failure in database",
+                    severidade=Severidade.ALTA,
+                    componentes_afetados=["Database"],
+                    recomendacao=RecomendacaoSchema(
+                        descricao="Implement replication",
+                        prioridade=Severidade.ALTA,
+                    ),
+                )
+            ],
+        )
+
+        mock_pipeline_instance = AsyncMock()
+        mock_pipeline_instance.run.return_value = expected_result
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        gateway = MultiAgentPipelineGateway()
+
+        # Act
+        result = await gateway.run("base64data")
+
+        # Assert
+        assert isinstance(result, AnaliseResultSchema)
+        assert len(result.componentes) == 1
+        assert result.componentes[0].nome == "Database"
+        assert len(result.riscos) == 1
+
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    def test_gateway_enable_judge_false(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class
+    ) -> None:
+        """Test gateway initialization with enable_judge=False."""
+        # Arrange
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = False
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        # Act
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        MultiAgentPipelineGateway()
+
+        # Assert
+        pipeline_call = mock_pipeline_class.call_args
+        assert pipeline_call[1]["enable_judge"] is False
+
+    @patch("src.interface.gateways.analysis_pipeline_gateway.MultiAgentPipeline")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIChatModel")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.OpenAIProvider")
+    @patch("src.interface.gateways.analysis_pipeline_gateway.get_settings")
+    def test_gateway_enable_judge_true(
+        self, mock_get_settings, mock_provider_class, mock_openai_class, mock_pipeline_class
+    ) -> None:
+        """Test gateway initialization with enable_judge=True."""
+        # Arrange
+        mock_settings = MagicMock()
+        mock_settings.llm.model_name = "gpt-4-vision"
+        mock_settings.llm.analyzer_model_name = "gpt-4"
+        mock_settings.llm.base_url = "http://localhost:4000"
+        mock_settings.llm.api_key = "test-key"
+        mock_settings.multiagent.enable_judge = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+
+        mock_vision_model = MagicMock()
+        mock_analyzer_model = MagicMock()
+        mock_openai_class.side_effect = [mock_vision_model, mock_analyzer_model]
+
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value = mock_pipeline_instance
+
+        # Act
+        from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway
+
+        MultiAgentPipelineGateway()
+
+        # Assert
+        pipeline_call = mock_pipeline_class.call_args
+        assert pipeline_call[1]["enable_judge"] is True
+
+
 class TestSQLAlchemyProcessamentoRepository:
     """Tests for the SQLAlchemyProcessamentoRepository adapter."""
 

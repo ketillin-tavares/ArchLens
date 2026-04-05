@@ -14,6 +14,7 @@ from src.domain.exceptions import (
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RetentativaInvalidaError,
 )
 from src.domain.value_objects import StatusAnalise
 from src.interface.controllers.v1.analise_controller import router as analise_router
@@ -43,6 +44,12 @@ def app() -> FastAPI:
         from fastapi.responses import JSONResponse
 
         return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    @app.exception_handler(RetentativaInvalidaError)
+    async def retentativa_invalida_handler(request, exc):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     return app
 
@@ -308,3 +315,137 @@ class TestGetAnalysisStatusController:
             data = response.json()
             assert data["status"] == StatusAnalise.ERRO.value
             assert data["erro_detalhe"] == erro_detalhe
+
+
+class TestRetryAnalysisController:
+    """Tests for POST /v1/analises/{id}/retry endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_202_success(self, async_client: AsyncClient) -> None:
+        """Test successful retry returns 202 Accepted."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+        criado_em = datetime.now(UTC)
+        atualizado_em = datetime.now(UTC)
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyDiagramaRepository") as mock_diagrama_repo,
+            patch("src.interface.controllers.v1.analise_controller._get_publisher_gateway") as mock_publisher_gateway,
+        ):
+            # Setup mocks
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+
+            mock_diagrama_repo_instance = AsyncMock()
+            mock_diagrama_repo.return_value = mock_diagrama_repo_instance
+
+            mock_publisher_instance = AsyncMock()
+            mock_publisher_gateway.return_value = mock_publisher_instance
+
+            mock_analise_repo_instance.buscar_por_id.return_value = Analise(
+                id=analise_id,
+                diagrama_id=diagrama_id,
+                status=StatusAnalise.ERRO,
+                criado_em=criado_em,
+                atualizado_em=atualizado_em,
+            )
+
+            from src.domain.entities import Diagrama
+
+            mock_diagrama_repo_instance.buscar_por_id.return_value = Diagrama(
+                id=diagrama_id,
+                nome_original="arquitetura.png",
+                content_type="image/png",
+                tamanho_bytes=1024,
+                storage_path="diagramas/2026/03/30/uuid.png",
+            )
+
+            # Act
+            response = await async_client.post(f"/v1/analises/{analise_id}/retry")
+
+            # Assert
+            assert response.status_code == 202
+            data = response.json()
+            assert data["id"] == str(analise_id)
+            assert data["status"] == StatusAnalise.RECEBIDO.value
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_404_not_found(self, async_client: AsyncClient) -> None:
+        """Test retry of non-existent analysis returns 404 Not Found."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyDiagramaRepository") as mock_diagrama_repo,
+            patch("src.interface.controllers.v1.analise_controller._get_publisher_gateway") as mock_publisher_gateway,
+        ):
+            # Setup mocks
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+            mock_analise_repo_instance.buscar_por_id.return_value = None
+
+            mock_diagrama_repo_instance = AsyncMock()
+            mock_diagrama_repo.return_value = mock_diagrama_repo_instance
+
+            mock_publisher_instance = AsyncMock()
+            mock_publisher_gateway.return_value = mock_publisher_instance
+
+            # Act
+            response = await async_client.post(f"/v1/analises/{analise_id}/retry")
+
+            # Assert
+            assert response.status_code == 404
+            data = response.json()
+            assert "detail" in data
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_409_invalid_status(self, async_client: AsyncClient) -> None:
+        """Test retry of non-ERRO analysis returns 409 Conflict."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        with (
+            patch("src.interface.controllers.v1.analise_controller.get_session") as mock_get_session,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyAnaliseRepository") as mock_analise_repo,
+            patch("src.interface.controllers.v1.analise_controller.SQLAlchemyDiagramaRepository") as mock_diagrama_repo,
+            patch("src.interface.controllers.v1.analise_controller._get_publisher_gateway") as mock_publisher_gateway,
+        ):
+            # Setup mocks
+            mock_session = AsyncMock()
+            mock_get_session.return_value = mock_session
+
+            mock_analise_repo_instance = AsyncMock()
+            mock_analise_repo.return_value = mock_analise_repo_instance
+
+            mock_diagrama_repo_instance = AsyncMock()
+            mock_diagrama_repo.return_value = mock_diagrama_repo_instance
+
+            mock_publisher_instance = AsyncMock()
+            mock_publisher_gateway.return_value = mock_publisher_instance
+
+            # Return analysis with RECEBIDO status (not ERRO)
+            mock_analise_repo_instance.buscar_por_id.return_value = Analise(
+                id=analise_id,
+                diagrama_id=diagrama_id,
+                status=StatusAnalise.RECEBIDO,
+            )
+
+            # Act
+            response = await async_client.post(f"/v1/analises/{analise_id}/retry")
+
+            # Assert
+            assert response.status_code == 409
+            data = response.json()
+            assert "detail" in data

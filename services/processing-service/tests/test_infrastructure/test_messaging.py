@@ -45,7 +45,7 @@ class TestRabbitMQPublisher:
         mock_channel = AsyncMock()
         mock_exchange = AsyncMock()
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
         mock_connect.return_value = mock_connection
 
         publisher = RabbitMQPublisher()
@@ -74,7 +74,7 @@ class TestRabbitMQPublisher:
         mock_channel = AsyncMock()
         mock_exchange = AsyncMock()
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
         mock_connect.return_value = mock_connection
 
         publisher = RabbitMQPublisher()
@@ -119,7 +119,7 @@ class TestRabbitMQPublisher:
         mock_channel = AsyncMock()
         mock_exchange = AsyncMock()
         mock_connection.channel.return_value = mock_channel
-        mock_channel.declare_exchange.return_value = mock_exchange
+        mock_channel.get_exchange.return_value = mock_exchange
         mock_connect.return_value = mock_connection
 
         publisher = RabbitMQPublisher()

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from src.application.ports import EventPublisher, FileStorage, ImageProcessor, LLMClient
+from src.application.ports import AnalysisPipeline, EventPublisher, FileStorage, ImageProcessor, LLMClient
 from src.domain.entities import Componente, Processamento, Risco, StatusProcessamento
 from src.domain.repositories import ProcessamentoRepository
 from src.domain.schemas import (
@@ -78,6 +78,13 @@ def mock_llm_client() -> LLMClient:
     """Fixture com mock da interface LLMClient."""
     client = AsyncMock(spec=LLMClient)
     return client
+
+
+@pytest.fixture
+def mock_analysis_pipeline() -> AnalysisPipeline:
+    """Fixture com mock da interface AnalysisPipeline."""
+    pipeline = AsyncMock(spec=AnalysisPipeline)
+    return pipeline
 
 
 @pytest.fixture

@@ -35,7 +35,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_processamento,
         sample_analise_result,
         sample_image_bytes,
@@ -64,14 +64,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "iVBORw0KGgo="
-        mock_llm_client.analyze_image.return_value = sample_analise_result.model_dump_json()
+        mock_analysis_pipeline.run.return_value = sample_analise_result
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -80,7 +80,7 @@ class TestProcessDiagram:
         # Assert
         mock_file_storage.download_file.assert_called_once_with("diagrama.pdf")
         mock_image_processor.normalize.assert_called_once()
-        mock_llm_client.analyze_image.assert_called_once()
+        mock_analysis_pipeline.run.assert_called_once()
         assert mock_event_publisher.publish_event.call_count >= 2  # ProcessamentoIniciado + AnaliseConcluida
 
     @pytest.mark.asyncio
@@ -91,7 +91,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
     ) -> None:
         """Test ProcessDiagram skips processing if already completed."""
         # Arrange
@@ -106,7 +106,7 @@ class TestProcessDiagram:
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -125,7 +125,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram retries on error status."""
@@ -142,14 +142,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "base64"
-        mock_llm_client.analyze_image.return_value = AnaliseResultSchema().model_dump_json()
+        mock_analysis_pipeline.run.return_value = AnaliseResultSchema()
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -167,7 +167,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
     ) -> None:
         """Test ProcessDiagram handles retriable StorageDownloadError."""
         # Arrange
@@ -182,7 +182,7 @@ class TestProcessDiagram:
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -201,7 +201,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram handles non-retriable ImageProcessingError."""
@@ -218,7 +218,7 @@ class TestProcessDiagram:
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -235,7 +235,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram handles retriable LLMTimeoutError."""
@@ -246,14 +246,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "base64"
-        mock_llm_client.analyze_image.side_effect = LLMTimeoutError("Request timeout")
+        mock_analysis_pipeline.run.side_effect = LLMTimeoutError("Request timeout")
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -271,7 +271,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram handles non-retriable LLMContentFilterError."""
@@ -282,14 +282,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "base64"
-        mock_llm_client.analyze_image.side_effect = LLMContentFilterError("Content filtered")
+        mock_analysis_pipeline.run.side_effect = LLMContentFilterError("Content filtered")
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -306,7 +306,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram handles SchemaValidationError."""
@@ -317,15 +317,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "base64"
-        mock_llm_client.analyze_image.return_value = "invalid json"
-        mock_llm_client.correct_json.side_effect = SchemaValidationError("Cannot correct JSON")
+        mock_analysis_pipeline.run.side_effect = SchemaValidationError("Cannot parse schema")
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act
@@ -342,7 +341,7 @@ class TestProcessDiagram:
         mock_event_publisher,
         mock_file_storage,
         mock_image_processor,
-        mock_llm_client,
+        mock_analysis_pipeline,
         sample_image_bytes,
     ) -> None:
         """Test ProcessDiagram handles AnaliseInsanaError from sanity checks."""
@@ -365,14 +364,14 @@ class TestProcessDiagram:
 
         mock_file_storage.download_file.return_value = sample_image_bytes
         mock_image_processor.normalize.return_value = "base64"
-        mock_llm_client.analyze_image.return_value = result.model_dump_json()
+        mock_analysis_pipeline.run.return_value = result
 
         use_case = ProcessDiagram(
             processamento_repository=mock_processamento_repository,
             event_publisher=mock_event_publisher,
             file_storage=mock_file_storage,
             image_processor=mock_image_processor,
-            llm_client=mock_llm_client,
+            analysis_pipeline=mock_analysis_pipeline,
         )
 
         # Act

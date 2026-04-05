@@ -21,10 +21,8 @@ class RabbitMQPublisher:
         """Estabelece conexão com o RabbitMQ e declara o exchange."""
         self._connection = await aio_pika.connect_robust(self._settings.url)
         self._channel = await self._connection.channel()
-        self._exchange = await self._channel.declare_exchange(
+        self._exchange = await self._channel.get_exchange(
             self._settings.exchange_name,
-            aio_pika.ExchangeType.TOPIC,
-            durable=True,
         )
         logger.info("rabbitmq_publisher_conectado", exchange=self._settings.exchange_name)
 

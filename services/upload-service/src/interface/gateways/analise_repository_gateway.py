@@ -103,3 +103,22 @@ class SQLAlchemyAnaliseRepository(AnaliseRepository):
         await self._session.execute(stmt)
         await self._session.flush()
         return True
+
+    async def resetar_para_retentativa(self, analise_id: uuid.UUID) -> None:
+        """
+        Reseta uma análise para retentativa, voltando ao status RECEBIDO.
+
+        Args:
+            analise_id: ID da análise a ser resetada.
+        """
+        stmt = (
+            update(AnaliseModel)
+            .where(AnaliseModel.id == analise_id)
+            .values(
+                status=StatusAnalise.RECEBIDO.value,
+                erro_detalhe=None,
+                atualizado_em=datetime.now(UTC),
+            )
+        )
+        await self._session.execute(stmt)
+        await self._session.flush()

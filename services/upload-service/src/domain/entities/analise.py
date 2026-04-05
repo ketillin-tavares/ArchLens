@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
+from src.domain.exceptions import RetentativaInvalidaError
 from src.domain.value_objects import StatusAnalise
 
 
@@ -37,3 +38,21 @@ class Analise(BaseModel):
             self.erro_detalhe = erro_detalhe
 
         return True
+
+    def resetar_para_retentativa(self) -> None:
+        """
+        Reseta a análise para retentativa de processamento.
+
+        Só é permitido quando o status atual é ERRO.
+
+        Raises:
+            RetentativaInvalidaError: Se o status atual não é ERRO.
+        """
+        if self.status != StatusAnalise.ERRO:
+            raise RetentativaInvalidaError(
+                f"Retentativa permitida apenas para análises com status 'erro'. Status atual: '{self.status.value}'"
+            )
+
+        self.status = StatusAnalise.RECEBIDO
+        self.erro_detalhe = None
+        self.atualizado_em = datetime.now(UTC)

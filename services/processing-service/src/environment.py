@@ -49,8 +49,16 @@ class LLMSettings(BaseSettings):
     base_url: str = Field(default="http://localhost:4000", validation_alias="LLM_BASE_URL")
     api_key: str = Field(default="sk-litellm", validation_alias="LLM_API_KEY")
     model_name: str = Field(default="archlens-vision", validation_alias="LLM_MODEL_NAME")
+    analyzer_model_name: str = Field(default="archlens-analyzer", validation_alias="LLM_ANALYZER_MODEL_NAME")
     temperature: float = Field(default=0.1, validation_alias="LLM_TEMPERATURE")
     max_tokens: int = Field(default=4096, validation_alias="LLM_MAX_TOKENS")
+
+
+class MultiAgentSettings(BaseSettings):
+    """Configurações do pipeline multi-agent."""
+
+    enable_multiagent: bool = Field(default=True, validation_alias="ENABLE_MULTIAGENT")
+    enable_judge: bool = Field(default=False, validation_alias="ENABLE_JUDGE")
 
 
 class AppSettings(BaseSettings):
@@ -69,6 +77,7 @@ class Settings(BaseSettings):
     rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
     s3: S3Settings = Field(default_factory=S3Settings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
+    multiagent: MultiAgentSettings = Field(default_factory=MultiAgentSettings)
 
 
 def get_settings() -> Settings:

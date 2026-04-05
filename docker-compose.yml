@@ -1,0 +1,341 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: archlens
+      POSTGRES_PASSWORD: archlens_dev
+      POSTGRES_MULTIPLE_DATABASES: upload_db:upload_user:upload_pass,processing_db:processing_user:processing_pass,report_db:report_user:report_pass,litellm_db:litellm_user:litellm_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/scripts/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archlens"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - archlens
+
+  localstack:
+    image: localstack/localstack:4.14
+    container_name: localstack
+    hostname: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./infra/scripts/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh
+    networks:
+      - archlens
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: archlens
+      RABBITMQ_DEFAULT_PASS: archlens_dev
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infra/scripts/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./infra/scripts/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - archlens
+
+  # vault:
+  #   image: hashicorp/vault:1.21
+  #   container_name: vault
+  #   hostname: vault
+  #   ports:
+  #     - "8200:8200"
+  #   environment:
+  #     VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+  #   env_file:
+  #     - .env
+  #   cap_add:
+  #     - IPC_LOCK
+  #   volumes:
+  #     - vault_data:/vault/data
+  #   networks:
+  #     - archlens
+
+  # ── Migrations ────────────────────────────────────────────
+
+  upload-migrations:
+    build:
+      context: ./services/upload-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: upload-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./services/upload-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - archlens
+
+  processing-migrations:
+    build:
+      context: ./services/processing-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: processing-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./services/processing-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - archlens
+
+  report-migrations:
+    build:
+      context: ./services/report-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: report-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./services/report-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - archlens
+
+  # ── Services ──────────────────────────────────────────────
+
+  upload-service:
+    build:
+      context: ./services/upload-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: upload-service
+    hostname: upload-service
+    ports:
+      - "8010:8000"
+    env_file:
+      - ./services/upload-service/.env
+    depends_on:
+      upload-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - archlens
+
+  processing-service:
+    build:
+      context: ./services/processing-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: processing-service
+    hostname: processing-service
+    ports:
+      - "8011:8001"
+    env_file:
+      - ./services/processing-service/.env
+    depends_on:
+      processing-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - archlens
+
+  report-service:
+    build:
+      context: ./services/report-service
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: report-service
+    hostname: report-service
+    ports:
+      - "8012:8002"
+    env_file:
+      - ./services/report-service/.env
+    depends_on:
+      report-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - archlens
+
+  # ── Guardrails ────────────────────────────────────────────
+
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: presidio-analyzer
+    hostname: presidio-analyzer
+    ports:
+      - "5001:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - archlens
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    container_name: presidio-anonymizer
+    hostname: presidio-anonymizer
+    ports:
+      - "5002:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - archlens
+
+  # ── Gateways ─────────────────────────────────────────────
+
+  litellm:
+    build:
+      context: ./gateways/litellm
+      dockerfile: Dockerfile
+    container_name: litellm
+    hostname: litellm
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./gateways/litellm/litellm_config.yaml:/app/config.yaml:ro
+      - ./gateways/litellm/guardrails:/app/guardrails:ro
+    environment:
+      LITELLM_DATABASE_URL: postgresql://litellm_user:litellm_pass@postgres:5432/litellm_db
+      STORE_MODEL_IN_DB: "True"
+      PRESIDIO_ANALYZER_API_BASE: http://presidio-analyzer:3000
+      PRESIDIO_ANONYMIZER_API_BASE: http://presidio-anonymizer:3000
+    env_file:
+      - .env
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      presidio-analyzer:
+        condition: service_healthy
+      presidio-anonymizer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - archlens
+
+  kong:
+    image: kong:3.9
+    container_name: kong
+    hostname: kong
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+      - "8443:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_ADMIN_GUI_LISTEN: "0.0.0.0:8002"
+      KONG_ADMIN_GUI_URL: "http://localhost:8002"
+      KONG_API_KEY: ${KONG_API_KEY:-}
+    env_file:
+      - .env
+    volumes:
+      - ./gateways/kong/kong.yml:/etc/kong/kong.yml:ro
+      - ./gateways/kong/kong.yml.template:/etc/kong/kong.yml.template:ro
+      - ./gateways/kong/docker-entrypoint.sh:/custom-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/custom-entrypoint.sh"]
+    depends_on:
+      upload-service:
+        condition: service_healthy
+      processing-service:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+    networks:
+      - archlens
+
+  # ── Observability ────────────────────────────────────────
+
+  newrelic-infra:
+    image: newrelic/infrastructure-bundle:3.3.20
+    container_name: newrelic-infra
+    cap_add:
+      - SYS_PTRACE
+    pid: host
+    privileged: true
+    environment:
+      NRIA_DISPLAY_NAME: archlens-local
+      NRIA_DOCKER_API_VERSION: "1.24"
+      NRIA_ENABLE_PROCESS_METRICS: "true"
+      NRIA_METRICS_SYSTEM_SAMPLE_RATE: 15
+      NRIA_METRICS_PROCESS_SAMPLE_RATE: 30
+      NRIA_METRICS_NETWORK_SAMPLE_RATE: 30
+      NRIA_METRICS_STORAGE_SAMPLE_RATE: 30
+      NRIA_CONTAINER_CACHE_METADATA_LIMIT: 120
+    env_file:
+      - .env
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - archlens
+
+volumes:
+  postgres_data:
+  localstack_data:
+  rabbitmq_data:
+  vault_data:
+  ollama_data:
+
+networks:
+  archlens:
+    driver: bridge

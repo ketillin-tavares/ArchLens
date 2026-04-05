@@ -15,6 +15,7 @@ from src.infrastructure.messaging.shared import rabbitmq_publisher
 from src.infrastructure.observability import MetricsRecorder, configure_logging
 from src.infrastructure.storage import S3StorageClient
 from src.interface.controllers import health_router, processamento_router
+from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway, SingleCallPipelineGateway
 from src.interface.gateways.event_publisher_gateway import RabbitMQEventPublisherGateway
 from src.interface.gateways.file_storage_gateway import S3FileStorageGateway
 from src.interface.gateways.image_processor_gateway import FitzImageProcessorGateway
@@ -31,19 +32,26 @@ async def _diagram_handler(analise_id: str, diagrama_storage_path: str, content_
     start = MetricsRecorder.start_timer()
     MetricsRecorder.record_analise_iniciada(analise_id)
 
+    settings = get_settings()
+
     async with async_session_factory() as session:
         repo = SQLAlchemyProcessamentoRepository(session)
         publisher_gateway = RabbitMQEventPublisherGateway(publisher=rabbitmq_publisher)
         file_storage_gateway = S3FileStorageGateway(s3_client)
         image_processor_gateway = FitzImageProcessorGateway()
-        llm_client_gateway = PydanticAILLMClientGateway()
+
+        if settings.multiagent.enable_multiagent:
+            pipeline_gateway = MultiAgentPipelineGateway()
+        else:
+            llm_client_gateway = PydanticAILLMClientGateway()
+            pipeline_gateway = SingleCallPipelineGateway(llm_client=llm_client_gateway)
 
         use_case = ProcessDiagram(
             processamento_repository=repo,
             event_publisher=publisher_gateway,
             file_storage=file_storage_gateway,
             image_processor=image_processor_gateway,
-            llm_client=llm_client_gateway,
+            analysis_pipeline=pipeline_gateway,
         )
 
         await use_case.execute(analise_id, diagrama_storage_path, content_type)

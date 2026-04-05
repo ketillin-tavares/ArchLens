@@ -47,3 +47,12 @@ class AnaliseRepository(abc.ABC):
         Returns:
             True se o status foi atualizado, False se foi ignorado.
         """
+
+    @abc.abstractmethod
+    async def resetar_para_retentativa(self, analise_id: uuid.UUID) -> None:
+        """
+        Reseta uma análise para retentativa, voltando ao status RECEBIDO.
+
+        Args:
+            analise_id: ID da análise a ser resetada.
+        """

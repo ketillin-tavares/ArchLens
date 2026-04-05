@@ -33,15 +33,13 @@ class RabbitMQConsumer:
         channel = await self._connection.channel()
         await channel.set_qos(prefetch_count=10)
 
-        exchange = await channel.declare_exchange(
+        exchange = await channel.get_exchange(
             self._settings.exchange_name,
-            aio_pika.ExchangeType.TOPIC,
-            durable=True,
         )
 
         queue = await channel.declare_queue(
             self._settings.queue_name,
-            durable=True,
+            passive=True,
         )
 
         await queue.bind(exchange, routing_key=ROUTING_KEY_ANALISE_CONCLUIDA)

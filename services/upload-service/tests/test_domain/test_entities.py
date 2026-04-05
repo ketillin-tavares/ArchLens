@@ -3,7 +3,10 @@
 import uuid
 from datetime import UTC, datetime
 
+import pytest
+
 from src.domain.entities import Analise, Diagrama
+from src.domain.exceptions import RetentativaInvalidaError
 from src.domain.value_objects import StatusAnalise
 
 
@@ -248,3 +251,93 @@ class TestAnalise:
         assert result2 is False
         assert analise.status == StatusAnalise.ANALISADO
         assert analise.atualizado_em == original_timestamp
+
+
+class TestAnaliseRetentativa:
+    """Tests for retry analysis functionality."""
+
+    def test_resetar_para_retentativa_from_erro(self) -> None:
+        """Test successful reset from ERRO status to RECEBIDO."""
+        # Arrange
+        diagrama_id = uuid.uuid4()
+        erro_msg = "Diagrama contém estrutura inválida"
+        analise = Analise(
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe=erro_msg,
+        )
+        original_criado_em = analise.criado_em
+
+        # Act
+        analise.resetar_para_retentativa()
+
+        # Assert
+        assert analise.status == StatusAnalise.RECEBIDO
+        assert analise.erro_detalhe is None
+        assert analise.criado_em == original_criado_em
+        assert analise.atualizado_em > original_criado_em
+
+    def test_resetar_para_retentativa_from_recebido_raises(self) -> None:
+        """Test that reset raises RetentativaInvalidaError when status is RECEBIDO."""
+        # Arrange
+        analise = Analise(
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.RECEBIDO,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError) as exc_info:
+            analise.resetar_para_retentativa()
+
+        assert "status 'erro'" in str(exc_info.value)
+        assert "recebido" in str(exc_info.value).lower()
+
+    def test_resetar_para_retentativa_from_em_processamento_raises(self) -> None:
+        """Test that reset raises RetentativaInvalidaError when status is EM_PROCESSAMENTO."""
+        # Arrange
+        analise = Analise(
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.EM_PROCESSAMENTO,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError) as exc_info:
+            analise.resetar_para_retentativa()
+
+        assert "status 'erro'" in str(exc_info.value)
+        assert "em_processamento" in str(exc_info.value).lower()
+
+    def test_resetar_para_retentativa_from_analisado_raises(self) -> None:
+        """Test that reset raises RetentativaInvalidaError when status is ANALISADO."""
+        # Arrange
+        analise = Analise(
+            diagrama_id=uuid.uuid4(),
+            status=StatusAnalise.ANALISADO,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError) as exc_info:
+            analise.resetar_para_retentativa()
+
+        assert "status 'erro'" in str(exc_info.value)
+        assert "analisado" in str(exc_info.value).lower()
+
+    def test_resetar_para_retentativa_clears_error_details(self) -> None:
+        """Test that reset clears error details when transitioning from ERRO."""
+        # Arrange
+        diagrama_id = uuid.uuid4()
+        erro_msg = "Timeout na análise"
+        analise = Analise(
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe=erro_msg,
+        )
+
+        # Verify error details are present
+        assert analise.erro_detalhe == erro_msg
+
+        # Act
+        analise.resetar_para_retentativa()
+
+        # Assert
+        assert analise.erro_detalhe is None

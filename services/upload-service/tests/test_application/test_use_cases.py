@@ -7,9 +7,14 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.application.dtos import AnaliseResponse, DiagramaUploadResponse
-from src.application.use_cases import GetAnalysisStatus, HandleStatusUpdate, SubmitDiagram
+from src.application.use_cases import GetAnalysisStatus, HandleStatusUpdate, RetryAnalysis, SubmitDiagram
 from src.domain.entities import Analise, Diagrama
-from src.domain.exceptions import AnaliseNaoEncontradaError, ArquivoInvalidoError, ArquivoTamanhoExcedidoError
+from src.domain.exceptions import (
+    AnaliseNaoEncontradaError,
+    ArquivoInvalidoError,
+    ArquivoTamanhoExcedidoError,
+    RetentativaInvalidaError,
+)
 from src.domain.value_objects import ArquivoDiagrama, StatusAnalise
 
 
@@ -525,3 +530,300 @@ class TestHandleStatusUpdate:
         mock_repo.atualizar_status.assert_called_once()
         call_args = mock_repo.atualizar_status.call_args
         assert call_args.args[1] == StatusAnalise.ANALISADO
+
+
+class TestRetryAnalysis:
+    """Tests for RetryAnalysis use case."""
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_happy_path(self) -> None:
+        """Test successful retry of failed analysis."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+        erro_msg = "Timeout na análise anterior"
+
+        analise_em_erro = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe=erro_msg,
+        )
+
+        diagrama = Diagrama(
+            id=diagrama_id,
+            nome_original="arquitetura.png",
+            content_type="image/png",
+            tamanho_bytes=1024,
+            storage_path="diagramas/2026/03/30/uuid.png",
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_em_erro
+        mock_analise_repo.resetar_para_retentativa.return_value = None
+
+        mock_diagrama_repo = AsyncMock()
+        mock_diagrama_repo.buscar_por_id.return_value = diagrama
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_event.return_value = None
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act
+        result = await use_case.execute(analise_id)
+
+        # Assert
+        assert isinstance(result, AnaliseResponse)
+        assert result.id == analise_id
+        assert result.diagrama_id == diagrama_id
+        assert result.status == StatusAnalise.RECEBIDO.value
+        assert result.erro_detalhe is None
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_not_found(self) -> None:
+        """Test that AnaliseNaoEncontradaError is raised when analysis not found."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = None
+
+        mock_diagrama_repo = AsyncMock()
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act & Assert
+        with pytest.raises(AnaliseNaoEncontradaError):
+            await use_case.execute(analise_id)
+
+        # Verify no other operations occurred
+        mock_analise_repo.resetar_para_retentativa.assert_not_called()
+        mock_diagrama_repo.buscar_por_id.assert_not_called()
+        mock_publisher.publish_event.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_invalid_status_recebido(self) -> None:
+        """Test that RetentativaInvalidaError is raised when status is RECEBIDO."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_recebido = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.RECEBIDO,
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_recebido
+
+        mock_diagrama_repo = AsyncMock()
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError):
+            await use_case.execute(analise_id)
+
+        # Verify resetar_para_retentativa was not called
+        mock_analise_repo.resetar_para_retentativa.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_invalid_status_em_processamento(self) -> None:
+        """Test that RetentativaInvalidaError is raised when status is EM_PROCESSAMENTO."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_em_proc = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.EM_PROCESSAMENTO,
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_em_proc
+
+        mock_diagrama_repo = AsyncMock()
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError):
+            await use_case.execute(analise_id)
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_invalid_status_analisado(self) -> None:
+        """Test that RetentativaInvalidaError is raised when status is ANALISADO."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_analisado = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ANALISADO,
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_analisado
+
+        mock_diagrama_repo = AsyncMock()
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act & Assert
+        with pytest.raises(RetentativaInvalidaError):
+            await use_case.execute(analise_id)
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_publishes_event(self) -> None:
+        """Test that RetryAnalysis publishes DiagramaEnviado event."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_em_erro = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe="Erro anterior",
+        )
+
+        diagrama = Diagrama(
+            id=diagrama_id,
+            nome_original="arquitetura.png",
+            content_type="image/png",
+            tamanho_bytes=1024,
+            storage_path="diagramas/2026/03/30/uuid.png",
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_em_erro
+        mock_analise_repo.resetar_para_retentativa.return_value = None
+
+        mock_diagrama_repo = AsyncMock()
+        mock_diagrama_repo.buscar_por_id.return_value = diagrama
+
+        mock_publisher = AsyncMock()
+        mock_publisher.publish_event.return_value = None
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act
+        await use_case.execute(analise_id)
+
+        # Assert
+        mock_publisher.publish_event.assert_called_once()
+        call_args = mock_publisher.publish_event.call_args
+        assert call_args.kwargs["event_type"] == "DiagramaEnviado"
+        assert call_args.kwargs["routing_key"] == "analise.diagrama.enviado"
+        assert "payload" in call_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_resets_repository(self) -> None:
+        """Test that resetar_para_retentativa is called on repository."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_em_erro = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe="Erro anterior",
+        )
+
+        diagrama = Diagrama(
+            id=diagrama_id,
+            nome_original="arquitetura.png",
+            content_type="image/png",
+            tamanho_bytes=1024,
+            storage_path="diagramas/2026/03/30/uuid.png",
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_em_erro
+        mock_analise_repo.resetar_para_retentativa.return_value = None
+
+        mock_diagrama_repo = AsyncMock()
+        mock_diagrama_repo.buscar_por_id.return_value = diagrama
+
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act
+        await use_case.execute(analise_id)
+
+        # Assert
+        mock_analise_repo.resetar_para_retentativa.assert_called_once_with(analise_id)
+
+    @pytest.mark.asyncio
+    async def test_retry_analysis_diagrama_not_found(self) -> None:
+        """Test that AnaliseNaoEncontradaError is raised when diagrama not found."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        analise_em_erro = Analise(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ERRO,
+            erro_detalhe="Erro anterior",
+        )
+
+        mock_analise_repo = AsyncMock()
+        mock_analise_repo.buscar_por_id.return_value = analise_em_erro
+        mock_analise_repo.resetar_para_retentativa.return_value = None
+
+        mock_diagrama_repo = AsyncMock()
+        mock_diagrama_repo.buscar_por_id.return_value = None
+
+        mock_publisher = AsyncMock()
+
+        use_case = RetryAnalysis(
+            analise_repository=mock_analise_repo,
+            diagrama_repository=mock_diagrama_repo,
+            event_publisher=mock_publisher,
+        )
+
+        # Act & Assert
+        with pytest.raises(AnaliseNaoEncontradaError):
+            await use_case.execute(analise_id)
+
+        # Verify event was not published
+        mock_publisher.publish_event.assert_not_called()

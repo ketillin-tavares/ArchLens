@@ -138,7 +138,6 @@ celerybeat.pid
 
 # RabbitMQ
 mnesia/
-rabbitmq/
 rabbitmq-data/
 
 # ActiveMQ
@@ -218,3 +217,4 @@ __marimo__/
 # Claude
 .claude/
 CLAUDE.md
+prompts/
