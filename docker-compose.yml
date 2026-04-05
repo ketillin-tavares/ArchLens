@@ -314,6 +314,13 @@ services:
     privileged: true
     environment:
       NRIA_DISPLAY_NAME: archlens-local
+      NRIA_DOCKER_API_VERSION: "1.24"
+      NRIA_ENABLE_PROCESS_METRICS: "true"
+      NRIA_METRICS_SYSTEM_SAMPLE_RATE: 15
+      NRIA_METRICS_PROCESS_SAMPLE_RATE: 30
+      NRIA_METRICS_NETWORK_SAMPLE_RATE: 30
+      NRIA_METRICS_STORAGE_SAMPLE_RATE: 30
+      NRIA_CONTAINER_CACHE_METADATA_LIMIT: 120
     env_file:
       - .env
     volumes:

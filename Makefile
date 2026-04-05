@@ -1,7 +1,5 @@
 setup:
 	docker compose up -d --build
-	bash infra/scripts/ollama/setup-ollama.sh
-	bash infra/scripts/vault/init-vault.sh
 	bash infra/scripts/litellm/generate-virtual-key.sh
 	@echo ""
 	@echo "=== ArchLens rodando ==="
@@ -9,7 +7,6 @@ setup:
 	@echo "Kong Manager:  http://localhost:8002"
 	@echo "LiteLLM UI:    http://localhost:4000/ui"
 	@echo "RabbitMQ UI:   http://localhost:15672"
-	@echo "Vault UI:      http://localhost:8200"
 
 up:
 	docker compose up -d --build
@@ -56,15 +53,6 @@ vault-secrets:
 	@echo "=== Database ===" && vault kv get secret/archlens/database
 	@echo "=== RabbitMQ ===" && vault kv get secret/archlens/rabbitmq
 	@echo "=== New Relic ===" && vault kv get secret/archlens/newrelic
-
-ollama-setup:
-	bash infra/scripts/ollama/setup-ollama.sh
-
-ollama-models:
-	docker compose exec ollama ollama list
-
-ollama-test:
-	curl -s http://localhost:11434/api/chat -d '{"model":"gemma3:4b","messages":[{"role":"user","content":"Diga olá"}],"stream":false}' | python -m json.tool
 
 kong-status:
 	curl -s http://localhost:8001/status | python -m json.tool
