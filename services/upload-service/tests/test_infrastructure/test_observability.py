@@ -3,7 +3,12 @@
 import time
 from unittest.mock import MagicMock, patch
 
-from src.infrastructure.observability.logging import _newrelic_linking_metadata, configure_logging
+from src.infrastructure.observability.logging import (
+    _StdlibLogSink,
+    _StructuredLogger,
+    configure_logging,
+    get_logger,
+)
 from src.infrastructure.observability.metrics import MetricsRecorder, _record_newrelic_metric
 
 
@@ -51,76 +56,145 @@ class TestConfigureLogging:
         assert True
 
 
-class TestNewrelicLinkingMetadata:
-    """Tests for New Relic linking metadata injection."""
+class TestStructuredLogger:
+    """Tests for _StructuredLogger adapter."""
 
-    def test_newrelic_linking_metadata_with_agent_unavailable(self) -> None:
-        """Test linking metadata when New Relic agent is not available."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_info_delegates_to_loguru(self, mock_logger: MagicMock) -> None:
+        """Test that info() calls loguru with bind and message."""
         # Arrange
-        event_dict = {"key": "value"}
+        structured_logger = _StructuredLogger()
 
-        with patch("src.infrastructure.observability.logging._newrelic_agent", None):
-            # Act
-            result = _newrelic_linking_metadata(None, "method", event_dict)
+        # Act
+        structured_logger.info("evento_teste", chave="valor")
 
-            # Assert
-            assert result == event_dict
-            assert "trace.id" not in result
+        # Assert
+        mock_logger.opt.assert_called()
 
-    def test_newrelic_linking_metadata_with_agent_available_full_metadata(self) -> None:
-        """Test linking metadata injection when agent has complete metadata."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_error_delegates_to_loguru(self, mock_logger: MagicMock) -> None:
+        """Test that error() calls loguru with bind and message."""
         # Arrange
-        event_dict = {"key": "value"}
-        mock_agent = MagicMock()
-        mock_agent.get_linking_metadata.return_value = {
-            "entity.name": "upload-service",
-            "entity.guid": "test-guid-123",
-            "trace.id": "test-trace-id",
-            "span.id": "test-span-id",
+        structured_logger = _StructuredLogger()
+
+        # Act
+        structured_logger.error("erro_teste", detalhe="falha")
+
+        # Assert
+        mock_logger.opt.assert_called()
+
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_exception_enables_traceback(self, mock_logger: MagicMock) -> None:
+        """Test that exception() calls loguru with exception=True."""
+        # Arrange
+        structured_logger = _StructuredLogger()
+
+        # Act
+        structured_logger.exception("erro_com_traceback")
+
+        # Assert
+        mock_logger.opt.assert_called_once_with(depth=1, exception=True)
+
+    def test_get_logger_returns_structured_logger(self) -> None:
+        """Test that get_logger returns a _StructuredLogger instance."""
+        # Act
+        result = get_logger()
+
+        # Assert
+        assert isinstance(result, _StructuredLogger)
+
+    def test_get_logger_returns_singleton(self) -> None:
+        """Test that get_logger always returns the same instance."""
+        # Act
+        logger_a = get_logger()
+        logger_b = get_logger()
+
+        # Assert
+        assert logger_a is logger_b
+
+
+class TestStdlibLogSink:
+    """Tests for _StdlibLogSink that routes logs to stdlib logging."""
+
+    def test_creates_stdlib_logger_with_correct_level(self) -> None:
+        """Test that _StdlibLogSink configures stdlib logger level."""
+        # Arrange
+        import logging as stdlib_logging
+
+        # Act
+        sink = _StdlibLogSink("WARNING")
+
+        # Assert
+        assert sink._stdlib_logger.level == stdlib_logging.WARNING
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent", None)
+    def test_write_forwards_to_stdlib_logger(self) -> None:
+        """Test that write() creates and handles a stdlib LogRecord."""
+        # Arrange
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=20, name="INFO"),
+            "file": MagicMock(path="/test.py"),
+            "line": 42,
+            "message": "test_message",
+            "extra": {"analise_id": "abc-123"},
+            "exception": None,
         }
 
-        with patch("src.infrastructure.observability.logging._newrelic_agent", mock_agent):
-            # Act
-            result = _newrelic_linking_metadata(None, "method", event_dict)
+        # Act
+        sink.write(mock_message)
 
-            # Assert
-            assert result["nr.entityName"] == "upload-service"
-            assert result["nr.entityGuid"] == "test-guid-123"
-            assert result["trace.id"] == "test-trace-id"
-            assert result["span.id"] == "test-span-id"
+        # Assert
+        sink._stdlib_logger.handle.assert_called_once()
 
-    def test_newrelic_linking_metadata_with_empty_metadata(self) -> None:
-        """Test linking metadata when agent returns empty metadata."""
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_write_calls_notice_error_on_error_level(self, mock_agent: MagicMock) -> None:
+        """Test that write() calls notice_error for ERROR level logs."""
         # Arrange
-        event_dict = {"key": "value"}
-        mock_agent = MagicMock()
-        mock_agent.get_linking_metadata.return_value = None
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
 
-        with patch("src.infrastructure.observability.logging._newrelic_agent", mock_agent):
-            # Act
-            result = _newrelic_linking_metadata(None, "method", event_dict)
-
-            # Assert
-            assert result == event_dict
-
-    def test_newrelic_linking_metadata_with_partial_metadata(self) -> None:
-        """Test linking metadata injection with partial metadata."""
-        # Arrange
-        event_dict = {"key": "value"}
-        mock_agent = MagicMock()
-        mock_agent.get_linking_metadata.return_value = {
-            "entity.name": "upload-service",
-            "trace.id": "test-trace-id",
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=40, name="ERROR"),
+            "file": MagicMock(path="/test.py"),
+            "line": 10,
+            "message": "falha_critica",
+            "extra": {},
+            "exception": None,
         }
 
-        with patch("src.infrastructure.observability.logging._newrelic_agent", mock_agent):
-            # Act
-            result = _newrelic_linking_metadata(None, "method", event_dict)
+        # Act
+        sink.write(mock_message)
 
-            # Assert
-            assert result["nr.entityName"] == "upload-service"
-            assert result["trace.id"] == "test-trace-id"
-            assert "span.id" not in result
+        # Assert
+        mock_agent.notice_error.assert_called_once()
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent")
+    def test_write_does_not_call_notice_error_on_info_level(self, mock_agent: MagicMock) -> None:
+        """Test that write() does not call notice_error for INFO level."""
+        # Arrange
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=20, name="INFO"),
+            "file": MagicMock(path="/test.py"),
+            "line": 10,
+            "message": "tudo_ok",
+            "extra": {},
+            "exception": None,
+        }
+
+        # Act
+        sink.write(mock_message)
+
+        # Assert
+        mock_agent.notice_error.assert_not_called()
 
 
 class TestRecordNewrelicMetric:

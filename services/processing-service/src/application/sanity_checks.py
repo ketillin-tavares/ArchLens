@@ -1,9 +1,8 @@
-import structlog
-
 from src.domain.exceptions import AnaliseInsanaError
 from src.domain.schemas import AnaliseResultSchema
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 MAX_COMPONENTES: int = 30
 MAX_RISCOS: int = 20

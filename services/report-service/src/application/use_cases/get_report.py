@@ -1,12 +1,11 @@
 import uuid
 
-import structlog
-
 from src.application.dtos import RelatorioResponse
 from src.domain.exceptions import RelatorioNaoEncontradoError
 from src.domain.repositories import RelatorioRepository
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class GetReport:

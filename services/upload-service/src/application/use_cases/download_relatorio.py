@@ -1,7 +1,5 @@
 import uuid
 
-import structlog
-
 from src.application.dtos.download_relatorio_response import DownloadRelatorioResponse
 from src.application.ports import FileStorage
 from src.domain.exceptions import (
@@ -11,8 +9,9 @@ from src.domain.exceptions import (
 )
 from src.domain.repositories import AnaliseRepository
 from src.domain.value_objects import StatusAnalise
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 PRESIGNED_URL_EXPIRES_IN: int = 3600
 

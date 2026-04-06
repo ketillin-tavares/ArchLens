@@ -2,7 +2,6 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -12,7 +11,7 @@ from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
 from src.infrastructure.messaging.shared import rabbitmq_publisher
-from src.infrastructure.observability import MetricsRecorder, configure_logging
+from src.infrastructure.observability import MetricsRecorder, configure_logging, get_logger
 from src.infrastructure.storage import S3StorageClient
 from src.interface.controllers import health_router, processamento_router
 from src.interface.gateways.analysis_pipeline_gateway import MultiAgentPipelineGateway, SingleCallPipelineGateway
@@ -22,7 +21,7 @@ from src.interface.gateways.image_processor_gateway import FitzImageProcessorGat
 from src.interface.gateways.llm_client_gateway import PydanticAILLMClientGateway
 from src.interface.gateways.processamento_repository_gateway import SQLAlchemyProcessamentoRepository
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 s3_client = S3StorageClient()
 

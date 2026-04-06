@@ -2,7 +2,6 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -19,11 +18,11 @@ from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
 from src.infrastructure.messaging.shared import rabbitmq_publisher
-from src.infrastructure.observability import MetricsRecorder, configure_logging
+from src.infrastructure.observability import MetricsRecorder, configure_logging, get_logger
 from src.interface.controllers import analise_router, health_router
 from src.interface.gateways.analise_repository_gateway import SQLAlchemyAnaliseRepository
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 async def _status_update_handler(

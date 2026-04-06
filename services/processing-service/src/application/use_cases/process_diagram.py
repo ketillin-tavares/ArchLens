@@ -1,7 +1,5 @@
 import uuid
 
-import structlog
-
 from src.application.ports import AnalysisPipeline, EventPublisher, FileStorage, ImageProcessor
 from src.domain.entities import Componente, Processamento, Risco, StatusProcessamento
 from src.domain.events import AnaliseConcluida, AnaliseFalhou, ProcessamentoIniciado
@@ -15,8 +13,9 @@ from src.domain.exceptions import (
     StorageDownloadError,
 )
 from src.domain.repositories import ProcessamentoRepository
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 NON_RETRIABLE_EXCEPTIONS = (LLMContentFilterError, LLMContextWindowError, AnaliseInsanaError, ImageProcessingError)
 RETRIABLE_EXCEPTIONS = (LLMApiError, StorageDownloadError)

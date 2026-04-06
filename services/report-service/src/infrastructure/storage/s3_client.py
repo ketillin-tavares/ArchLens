@@ -1,9 +1,9 @@
 import aioboto3
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class S3StorageClient:

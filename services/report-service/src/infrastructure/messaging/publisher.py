@@ -2,16 +2,16 @@ import json
 from types import ModuleType
 
 import aio_pika
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
 
 try:
     import newrelic.agent as _newrelic_agent
 except ImportError:
     _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class RabbitMQPublisher:

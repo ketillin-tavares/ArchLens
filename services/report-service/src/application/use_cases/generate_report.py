@@ -2,14 +2,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import structlog
-
 from src.application.ports import EventPublisher, FileStorage, MarkdownReportWriter
 from src.domain.entities import Relatorio
 from src.domain.events import RelatorioGerado
 from src.domain.repositories import RelatorioRepository
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 SEVERIDADES: list[str] = ["critica", "alta", "media", "baixa"]
 

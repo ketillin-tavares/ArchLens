@@ -3,7 +3,6 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -13,7 +12,7 @@ from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
 from src.infrastructure.messaging.shared import rabbitmq_publisher
-from src.infrastructure.observability import MetricsRecorder, configure_logging
+from src.infrastructure.observability import MetricsRecorder, configure_logging, get_logger
 from src.infrastructure.storage.s3_client import S3StorageClient
 from src.interface.controllers import health_router, relatorio_router
 from src.interface.gateways.event_publisher_gateway import RabbitMQEventPublisherGateway
@@ -21,7 +20,7 @@ from src.interface.gateways.file_storage_gateway import S3FileStorageGateway
 from src.interface.gateways.markdown_report_writer_gateway import ReportWriterGateway
 from src.interface.gateways.relatorio_repository_gateway import SQLAlchemyRelatorioRepository
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 s3_client = S3StorageClient()
 

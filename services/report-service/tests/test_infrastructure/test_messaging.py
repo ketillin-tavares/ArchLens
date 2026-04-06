@@ -216,7 +216,7 @@ class TestRabbitMQPublisher:
         assert mock_exchange.publish.call_count == 3
 
 
-@patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+@patch("src.infrastructure.observability.tracing._newrelic_agent", None)
 class TestRabbitMQConsumer:
     """Tests for the RabbitMQConsumer class."""
 
@@ -326,6 +326,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -356,6 +357,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -379,6 +381,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -417,7 +420,8 @@ class TestRabbitMQConsumer:
 class TestRabbitMQConsumerNewRelic:
     """Tests for consumer with New Relic integration."""
 
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent")
+    @pytest.mark.asyncio
+    @patch("src.infrastructure.observability.tracing._newrelic_agent")
     async def test_process_message_with_newrelic_tracing(self, mock_nr_agent: MagicMock) -> None:
         """Test that _process_message calls New Relic tracing when agent is available."""
         # Arrange

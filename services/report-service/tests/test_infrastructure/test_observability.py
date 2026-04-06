@@ -4,10 +4,10 @@ import time
 from unittest.mock import MagicMock, patch
 
 from src.infrastructure.observability.logging import (
-    _newrelic_linking_metadata,
-    _newrelic_notice_error,
-    _uppercase_log_level,
+    _StdlibLogSink,
+    _StructuredLogger,
     configure_logging,
+    get_logger,
 )
 from src.infrastructure.observability.metrics import MetricsRecorder, _record_newrelic_metric
 
@@ -168,219 +168,186 @@ class TestRecordNewRelicMetric:
         assert calls[2][0] == ("Custom/Metric3", 0.0)
 
 
-class TestLogging:
-    """Tests for logging configuration."""
+class TestConfigureLogging:
+    """Tests for loguru logging configuration."""
 
-    @patch("src.infrastructure.observability.logging.structlog.configure")
-    def test_configure_logging_with_default_level(self, mock_configure: MagicMock) -> None:
-        """Test configure_logging with default INFO level."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_configure_logging_removes_default_handler(self, mock_logger: MagicMock) -> None:
+        """Test that configure_logging removes the default loguru handler."""
         # Act
         configure_logging()
 
         # Assert
-        mock_configure.assert_called_once()
-        call_kwargs = mock_configure.call_args[1]
-        assert "processors" in call_kwargs
-        assert "wrapper_class" in call_kwargs
-        assert "context_class" in call_kwargs
-        assert "logger_factory" in call_kwargs
+        mock_logger.remove.assert_called_once()
 
-    @patch("src.infrastructure.observability.logging.structlog.configure")
-    def test_configure_logging_with_debug_level(self, mock_configure: MagicMock) -> None:
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_configure_logging_adds_two_sinks(self, mock_logger: MagicMock) -> None:
+        """Test that configure_logging adds terminal and stdlib sinks."""
+        # Act
+        configure_logging()
+
+        # Assert
+        assert mock_logger.add.call_count == 2
+
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_configure_logging_with_debug_level(self, mock_logger: MagicMock) -> None:
         """Test configure_logging with DEBUG level."""
         # Act
         configure_logging(log_level="DEBUG")
 
         # Assert
-        mock_configure.assert_called_once()
+        mock_logger.remove.assert_called_once()
+        assert mock_logger.add.call_count == 2
+        first_call_kwargs = mock_logger.add.call_args_list[0][1]
+        assert first_call_kwargs["level"] == "DEBUG"
 
-    @patch("src.infrastructure.observability.logging.structlog.configure")
-    def test_configure_logging_with_error_level(self, mock_configure: MagicMock) -> None:
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_configure_logging_with_error_level(self, mock_logger: MagicMock) -> None:
         """Test configure_logging with ERROR level."""
         # Act
         configure_logging(log_level="ERROR")
 
         # Assert
-        mock_configure.assert_called_once()
-
-    @patch("src.infrastructure.observability.logging.structlog.configure")
-    def test_configure_logging_processors_list(self, mock_configure: MagicMock) -> None:
-        """Test that configure_logging includes required processors."""
-        # Act
-        configure_logging()
-
-        # Assert
-        call_kwargs = mock_configure.call_args[1]
-        processors = call_kwargs["processors"]
-
-        # Verify that processors is a list with items
-        assert isinstance(processors, list)
-        assert len(processors) > 0
-
-        # Verify JSON renderer is included
-        processor_names = [type(p).__name__ for p in processors]
-        assert "JSONRenderer" in processor_names
+        first_call_kwargs = mock_logger.add.call_args_list[0][1]
+        assert first_call_kwargs["level"] == "ERROR"
 
 
-class TestUppercaseLogLevel:
-    """Tests for _uppercase_log_level processor."""
+class TestStructuredLogger:
+    """Tests for _StructuredLogger adapter."""
 
-    def test_uppercase_log_level_converts_to_upper(self) -> None:
-        """Test that log_level is converted to uppercase."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_info_delegates_to_loguru(self, mock_logger: MagicMock) -> None:
+        """Test that info() calls loguru with bind and message."""
         # Arrange
-        event_dict = {"log_level": "info", "message": "test"}
+        structured_logger = _StructuredLogger()
 
         # Act
-        result = _uppercase_log_level(None, "info", event_dict)
+        structured_logger.info("evento_teste", chave="valor")
 
         # Assert
-        assert result["log_level"] == "INFO"
+        mock_logger.opt.assert_called()
 
-    def test_uppercase_log_level_without_log_level_key(self) -> None:
-        """Test that event_dict is returned unchanged when log_level is absent."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_error_delegates_to_loguru(self, mock_logger: MagicMock) -> None:
+        """Test that error() calls loguru with bind and message."""
         # Arrange
-        event_dict = {"message": "test"}
+        structured_logger = _StructuredLogger()
 
         # Act
-        result = _uppercase_log_level(None, "info", event_dict)
+        structured_logger.error("erro_teste", detalhe="falha")
 
         # Assert
-        assert result == {"message": "test"}
-        assert "log_level" not in result
+        mock_logger.opt.assert_called()
 
-
-class TestNewRelicNoticeError:
-    """Tests for _newrelic_notice_error processor."""
-
-    def test_returns_event_dict_when_agent_is_none(self) -> None:
-        """Test that event_dict is returned unchanged when agent is None."""
+    @patch("src.infrastructure.observability.logging.logger")
+    def test_exception_enables_traceback(self, mock_logger: MagicMock) -> None:
+        """Test that exception() calls loguru with exception=True."""
         # Arrange
-        with patch("src.infrastructure.observability.logging._newrelic_agent", None):
-            event_dict = {"log_level": "error", "message": "test"}
+        structured_logger = _StructuredLogger()
 
-            # Act
-            result = _newrelic_notice_error(None, "error", event_dict)
+        # Act
+        structured_logger.exception("erro_com_traceback")
 
-            # Assert
-            assert result == event_dict
+        # Assert
+        mock_logger.opt.assert_called_once_with(depth=1, exception=True)
+
+    def test_get_logger_returns_structured_logger(self) -> None:
+        """Test that get_logger returns a _StructuredLogger instance."""
+        # Act
+        result = get_logger()
+
+        # Assert
+        assert isinstance(result, _StructuredLogger)
+
+    def test_get_logger_returns_singleton(self) -> None:
+        """Test that get_logger always returns the same instance."""
+        # Act
+        logger_a = get_logger()
+        logger_b = get_logger()
+
+        # Assert
+        assert logger_a is logger_b
+
+
+class TestStdlibLogSink:
+    """Tests for _StdlibLogSink that routes logs to stdlib logging."""
+
+    def test_creates_stdlib_logger_with_correct_level(self) -> None:
+        """Test that _StdlibLogSink configures stdlib logger level."""
+        # Arrange
+        import logging as stdlib_logging
+
+        # Act
+        sink = _StdlibLogSink("WARNING")
+
+        # Assert
+        assert sink._stdlib_logger.level == stdlib_logging.WARNING
+
+    @patch("src.infrastructure.observability.logging._newrelic_agent", None)
+    def test_write_forwards_to_stdlib_logger(self) -> None:
+        """Test that write() creates and handles a stdlib LogRecord."""
+        # Arrange
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=20, name="INFO"),
+            "file": MagicMock(path="/test.py"),
+            "line": 42,
+            "message": "test_message",
+            "extra": {"analise_id": "abc-123"},
+            "exception": None,
+        }
+
+        # Act
+        sink.write(mock_message)
+
+        # Assert
+        sink._stdlib_logger.handle.assert_called_once()
 
     @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_calls_notice_error_on_error_level(self, mock_agent: MagicMock) -> None:
-        """Test that notice_error is called for error-level logs."""
+    def test_write_calls_notice_error_on_error_level(self, mock_agent: MagicMock) -> None:
+        """Test that write() calls notice_error for ERROR level logs."""
         # Arrange
-        event_dict = {"log_level": "error", "message": "something failed"}
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=40, name="ERROR"),
+            "file": MagicMock(path="/test.py"),
+            "line": 10,
+            "message": "falha_critica",
+            "extra": {},
+            "exception": None,
+        }
 
         # Act
-        result = _newrelic_notice_error(None, "error", event_dict)
+        sink.write(mock_message)
 
         # Assert
-        mock_agent.notice_error.assert_called_once_with()
-        assert result == event_dict
+        mock_agent.notice_error.assert_called_once()
 
     @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_calls_notice_error_with_exc_info(self, mock_agent: MagicMock) -> None:
-        """Test that notice_error is called with exc_info when available."""
+    def test_write_does_not_call_notice_error_on_info_level(self, mock_agent: MagicMock) -> None:
+        """Test that write() does not call notice_error for INFO level."""
         # Arrange
-        exc_info = (ValueError, ValueError("test"), None)
-        event_dict = {"log_level": "error", "message": "fail", "exc_info": exc_info}
+        sink = _StdlibLogSink("INFO")
+        sink._stdlib_logger = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.record = {
+            "level": MagicMock(no=20, name="INFO"),
+            "file": MagicMock(path="/test.py"),
+            "line": 10,
+            "message": "tudo_ok",
+            "extra": {},
+            "exception": None,
+        }
 
         # Act
-        result = _newrelic_notice_error(None, "error", event_dict)
-
-        # Assert
-        mock_agent.notice_error.assert_called_once_with(error=exc_info)
-        assert result == event_dict
-
-    @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_does_not_call_notice_error_on_info_level(self, mock_agent: MagicMock) -> None:
-        """Test that notice_error is not called for non-error levels."""
-        # Arrange
-        event_dict = {"log_level": "info", "message": "all good"}
-
-        # Act
-        result = _newrelic_notice_error(None, "info", event_dict)
+        sink.write(mock_message)
 
         # Assert
         mock_agent.notice_error.assert_not_called()
-        assert result == event_dict
-
-    @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_calls_notice_error_on_critical_level(self, mock_agent: MagicMock) -> None:
-        """Test that notice_error is called for critical-level logs."""
-        # Arrange
-        event_dict = {"log_level": "critical", "message": "critical fail"}
-
-        # Act
-        _newrelic_notice_error(None, "critical", event_dict)
-
-        # Assert
-        mock_agent.notice_error.assert_called_once_with()
-
-
-class TestNewRelicLinkingMetadata:
-    """Tests for _newrelic_linking_metadata function."""
-
-    def test_newrelic_linking_metadata_when_agent_is_none(self) -> None:
-        """Test that _newrelic_linking_metadata returns event_dict unchanged when agent is None."""
-        # Arrange
-        with patch("src.infrastructure.observability.logging._newrelic_agent", None):
-            event_dict = {"level": "info", "message": "test"}
-
-            # Act
-            result = _newrelic_linking_metadata(None, "info", event_dict)
-
-            # Assert
-            assert result == event_dict
-
-    @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_newrelic_linking_metadata_injects_trace_context(self, mock_agent: MagicMock) -> None:
-        """Test that _newrelic_linking_metadata injects trace context when available."""
-        # Arrange
-        mock_agent.get_linking_metadata.return_value = {
-            "entity.name": "test-entity",
-            "entity.guid": "test-guid-123",
-            "trace.id": "trace-abc",
-            "span.id": "span-xyz",
-        }
-        event_dict = {"level": "info", "message": "test"}
-
-        # Act
-        result = _newrelic_linking_metadata(None, "info", event_dict)
-
-        # Assert
-        assert result["nr.entityName"] == "test-entity"
-        assert result["nr.entityGuid"] == "test-guid-123"
-        assert result["trace.id"] == "trace-abc"
-        assert result["span.id"] == "span-xyz"
-
-    @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_newrelic_linking_metadata_empty_metadata(self, mock_agent: MagicMock) -> None:
-        """Test that _newrelic_linking_metadata handles empty metadata."""
-        # Arrange
-        mock_agent.get_linking_metadata.return_value = {}
-        event_dict = {"level": "info", "message": "test"}
-
-        # Act
-        result = _newrelic_linking_metadata(None, "info", event_dict)
-
-        # Assert - should not add trace/span if empty
-        assert "trace.id" not in result
-        assert "span.id" not in result
-
-    @patch("src.infrastructure.observability.logging._newrelic_agent")
-    def test_newrelic_linking_metadata_partial_metadata(self, mock_agent: MagicMock) -> None:
-        """Test that _newrelic_linking_metadata handles partial metadata."""
-        # Arrange
-        mock_agent.get_linking_metadata.return_value = {
-            "entity.name": "entity",
-            "trace.id": "trace-123",
-        }
-        event_dict = {"level": "info", "message": "test"}
-
-        # Act
-        result = _newrelic_linking_metadata(None, "info", event_dict)
-
-        # Assert
-        assert result["nr.entityName"] == "entity"
-        assert result["trace.id"] == "trace-123"
-        assert "span.id" not in result  # Not in metadata, so not added

@@ -1,7 +1,6 @@
 from typing import cast
 
 import pybreaker
-import structlog
 from pydantic_ai import Agent
 from pydantic_ai.messages import ImageUrl
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -23,8 +22,9 @@ from src.domain.value_objects import (
     USER_PROMPT,
 )
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 llm_circuit_breaker = pybreaker.CircuitBreaker(
     fail_max=3,

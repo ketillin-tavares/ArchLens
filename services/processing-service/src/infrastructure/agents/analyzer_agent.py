@@ -1,15 +1,15 @@
 import json
 from typing import cast
 
-import structlog
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 
 from src.domain.prompts import ANALYZER_SYSTEM_PROMPT, ANALYZER_USER_PROMPT_TEMPLATE
 from src.domain.schemas import ComponenteSchema
 from src.infrastructure.agents.schemas import AnalyzerResultSchema
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class AnalyzerAgent:

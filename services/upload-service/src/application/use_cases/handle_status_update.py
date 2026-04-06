@@ -1,11 +1,10 @@
 import uuid
 
-import structlog
-
 from src.domain.repositories import AnaliseRepository
 from src.domain.value_objects import StatusAnalise
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class HandleStatusUpdate:

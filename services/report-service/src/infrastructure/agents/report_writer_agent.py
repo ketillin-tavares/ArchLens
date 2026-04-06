@@ -1,7 +1,6 @@
 import json
 from typing import Any
 
-import structlog
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -9,8 +8,9 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from src.domain.prompts import REPORT_WRITER_SYSTEM_PROMPT, REPORT_WRITER_USER_PROMPT_TEMPLATE
 from src.environment import get_settings
 from src.infrastructure.agents.schemas import MarkdownReportOutput
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class ReportWriterAgent:

@@ -1,19 +1,14 @@
 import json
 from collections.abc import Callable, Coroutine
-from types import ModuleType
 from typing import Any
 
 import aio_pika
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
+from src.infrastructure.observability.tracing import rabbitmq_consume_trace
 
-try:
-    import newrelic.agent as _newrelic_agent
-except ImportError:
-    _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
-
-logger = structlog.get_logger()
+logger = get_logger()
 
 ROUTING_KEY_DIAGRAMA_ENVIADO: str = "analise.diagrama.enviado"
 
@@ -67,28 +62,25 @@ class RabbitMQConsumer:
         """
         async with message.process():
             try:
-                if _newrelic_agent is not None:
-                    trace_headers = message.headers if isinstance(message.headers, dict) else {}
-                    _newrelic_agent.accept_distributed_trace_headers(trace_headers, transport_type="AMQP")
+                with rabbitmq_consume_trace("_process_message", message.headers):
+                    body = json.loads(message.body.decode())
+                    event_type = body.get("event_type", "")
+                    payload = body.get("payload", {})
+                    analise_id = payload.get("analise_id")
+                    diagrama_storage_path = payload.get("diagrama_storage_path")
+                    content_type = payload.get("content_type")
 
-                body = json.loads(message.body.decode())
-                event_type = body.get("event_type", "")
-                payload = body.get("payload", {})
-                analise_id = payload.get("analise_id")
-                diagrama_storage_path = payload.get("diagrama_storage_path")
-                content_type = payload.get("content_type")
+                    logger.info(
+                        "diagrama_enviado_recebido",
+                        event_type=event_type,
+                        analise_id=analise_id,
+                    )
 
-                logger.info(
-                    "diagrama_enviado_recebido",
-                    event_type=event_type,
-                    analise_id=analise_id,
-                )
+                    if event_type != "DiagramaEnviado":
+                        logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
+                        return
 
-                if event_type != "DiagramaEnviado":
-                    logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
-                    return
-
-                await self._handler(analise_id, diagrama_storage_path, content_type)
+                    await self._handler(analise_id, diagrama_storage_path, content_type)
 
             except Exception:
                 logger.exception("erro_processando_evento", message_body=message.body.decode()[:500])

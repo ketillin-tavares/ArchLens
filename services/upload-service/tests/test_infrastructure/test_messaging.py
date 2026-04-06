@@ -138,7 +138,7 @@ class TestRabbitMQConsumer:
         mock_queue.consume.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_processamento_iniciado(self) -> None:
         """Test processing a ProcessamentoIniciado event."""
         # Arrange
@@ -152,6 +152,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -163,7 +164,7 @@ class TestRabbitMQConsumer:
         mock_handler.assert_called_once_with("test-123", "em_processamento", None, None)
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_analise_falhou(self) -> None:
         """Test processing an AnaliseFalhou event with error details."""
         # Arrange
@@ -180,6 +181,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -191,7 +193,7 @@ class TestRabbitMQConsumer:
         mock_handler.assert_called_once_with("test-123", "erro", "Falha ao processar", None)
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_relatorio_gerado(self) -> None:
         """Test processing a RelatorioGerado event with s3_key."""
         # Arrange
@@ -208,6 +210,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -219,7 +222,7 @@ class TestRabbitMQConsumer:
         mock_handler.assert_called_once_with("test-123", "analisado", None, "reports/test-123.md")
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_analise_concluida_ignored(self) -> None:
         """Test that AnaliseConcluida event is ignored (status is None)."""
         # Arrange
@@ -233,6 +236,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -244,7 +248,7 @@ class TestRabbitMQConsumer:
         mock_handler.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_unknown_event_ignored(self) -> None:
         """Test that unknown event types are ignored."""
         # Arrange
@@ -258,6 +262,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -269,7 +274,7 @@ class TestRabbitMQConsumer:
         mock_handler.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.infrastructure.messaging.consumer._newrelic_agent", None)
+    @patch("src.infrastructure.observability.tracing._newrelic_agent", None)
     async def test_process_message_malformed_json(self) -> None:
         """Test that malformed JSON is handled gracefully."""
         # Arrange
@@ -278,6 +283,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = b"not json {{"
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()

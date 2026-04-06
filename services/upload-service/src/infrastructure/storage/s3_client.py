@@ -1,11 +1,11 @@
 import aioboto3
 import pybreaker
-import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 storage_circuit_breaker = pybreaker.CircuitBreaker(
     fail_max=3,
