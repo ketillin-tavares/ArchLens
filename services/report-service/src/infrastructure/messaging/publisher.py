@@ -48,7 +48,9 @@ class RabbitMQPublisher:
 
         headers: dict = {}
         if _newrelic_agent is not None:
-            _newrelic_agent.insert_distributed_trace_headers(headers)
+            nr_headers = []
+            _newrelic_agent.insert_distributed_trace_headers(nr_headers)
+            headers.update(dict(nr_headers))
 
         message = aio_pika.Message(
             body=message_body,
