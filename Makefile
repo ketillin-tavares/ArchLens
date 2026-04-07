@@ -68,3 +68,12 @@ litellm-generate-key:
 
 litellm-ui:
 	@echo "LiteLLM UI: http://localhost:4000/ui"
+
+venv-us:
+	cd services/upload-service && source .venv/Scripts/activate
+
+venv-ps:
+	cd services/processing-service && source .venv/Scripts/activate
+
+venv-rs:
+	cd services/report-service && source .venv/Scripts/activate

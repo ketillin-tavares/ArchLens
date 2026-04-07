@@ -1,6 +1,6 @@
 # Report Service
 
-Serviço responsável por consumir eventos de análise concluída via RabbitMQ, gerar relatórios estruturados e persistir em PostgreSQL, disponibilizando-os através de uma API REST.
+Microserviço responsável pela geração, armazenamento e entrega de relatórios arquiteturais. Consome eventos de análise concluída via RabbitMQ, gera relatórios estruturados em Markdown (via LiteLLM) e JSON, persiste em PostgreSQL, armazena em S3 e disponibiliza através de uma API REST. Implementa Clean Architecture com Ports & Adapters, observabilidade com Loguru e New Relic.
 
 ## Estrutura do Projeto
 
@@ -8,86 +8,102 @@ Serviço responsável por consumir eventos de análise concluída via RabbitMQ, 
 services/report-service/
 ├── src/                                  # Código-fonte da aplicação
 │   ├── domain/                          # Camada de Domínio (regras de negócio)
-│   │   ├── entities/                    # Entidades: Relatorio
+│   │   ├── entities/
+│   │   │   └── relatorio.py             # Entidade Relatorio com Pydantic
 │   │   ├── events.py                    # Eventos de domínio: AnaliseConcluida, RelatorioGerado
 │   │   ├── exceptions.py                # Exceções customizadas de domínio
-│   │   └── repositories/                # Interfaces (Ports) de repositórios
-│   │       └── relatorio_repository.py  # Contrato de persistência
+│   │   └── repositories/
+│   │       └── relatorio_repository.py  # Port (interface abstrata) de persistência
 │   │
 │   ├── application/                     # Camada de Aplicação (casos de uso)
-│   │   ├── use_cases/                   # Casos de uso: GenerateReport, GetReport
-│   │   ├── dtos/                        # Data Transfer Objects
-│   │   │   └── relatorio_response.py    # Resposta padronizada de relatório
-│   │   └── ports/                       # Interfaces (Ports)
-│   │       └── event_publisher.py       # Contrato para publicação de eventos
+│   │   ├── use_cases/
+│   │   │   ├── generate_report.py       # Caso de uso: GenerateReport
+│   │   │   └── get_report.py            # Caso de uso: GetReport
+│   │   ├── dtos/
+│   │   │   └── relatorio_response.py    # Data Transfer Object de saída
+│   │   └── ports/
+│   │       ├── event_publisher.py       # Port: contrato de publicação de eventos
+│   │       ├── file_storage.py          # Port: contrato de persistência em S3
+│   │       └── markdown_report_writer.py # Port: contrato de geração de Markdown
 │   │
 │   ├── infrastructure/                  # Camada de Infraestrutura (detalhes técnicos)
-│   │   ├── database/                    # Conexão e sessões SQLAlchemy async
-│   │   │   ├── session.py               # Configuração de conexão async
+│   │   ├── database/
+│   │   │   ├── session.py               # Configuração de conexão async (asyncpg)
 │   │   │   └── __init__.py
-│   │   ├── models/                      # Modelos SQLAlchemy (mapeamento de tabelas)
-│   │   │   ├── base.py                  # Classe base para modelos
-│   │   │   ├── relatorio_model.py       # Modelo ORM para Relatorio
+│   │   ├── models/
+│   │   │   ├── base.py                  # Classe base para modelos SQLAlchemy
+│   │   │   ├── relatorio_model.py       # Modelo ORM mapeado para tabela
 │   │   │   └── __init__.py
-│   │   ├── messaging/                   # RabbitMQ (pub/sub)
-│   │   │   ├── consumer.py              # Consumidor de eventos AnaliseConcluida
-│   │   │   ├── publisher.py             # Publicador de eventos RelatorioGerado
+│   │   ├── messaging/
+│   │   │   ├── consumer.py              # RabbitMQ Consumer de AnaliseConcluida
+│   │   │   ├── publisher.py             # RabbitMQ Publisher de RelatorioGerado
 │   │   │   ├── shared.py                # Instância global do publisher
 │   │   │   └── __init__.py
-│   │   ├── observability/               # Logging e métricas
-│   │   │   ├── logging.py               # Configuração de logging estruturado
-│   │   │   ├── metrics.py               # Métricas da aplicação
+│   │   ├── storage/
+│   │   │   ├── s3_client.py             # Cliente aioboto3 para S3/LocalStack
 │   │   │   └── __init__.py
-│   │   ├── alembic/                     # Migrações de banco de dados
+│   │   ├── observability/
+│   │   │   ├── logging.py               # Configuração de Loguru com sink para stdlib
+│   │   │   ├── metrics.py               # Recorder de métricas customizadas
+│   │   │   └── __init__.py
+│   │   ├── alembic/
 │   │   │   ├── versions/                # Scripts de migração
-│   │   │   └── env.py                   # Configuração do Alembic
+│   │   │   └── env.py                   # Configuração Alembic
 │   │   └── __init__.py
 │   │
 │   ├── interface/                       # Camada de Interface Adapters
-│   │   ├── controllers/                 # Rotas HTTP (FastAPI)
-│   │   │   ├── v1/                      # Versão 1 da API
-│   │   │   │   ├── relatorio_controller.py  # Endpoints: GET /relatorios/{analise_id}
+│   │   ├── controllers/
+│   │   │   ├── v1/
+│   │   │   │   ├── relatorio_controller.py  # Rotas FastAPI v1
 │   │   │   │   └── __init__.py
 │   │   │   ├── health_controller.py     # Health check
 │   │   │   └── __init__.py
-│   │   ├── gateways/                    # Implementações concretas (Adapters)
-│   │   │   ├── relatorio_repository_gateway.py   # SQLAlchemy adapter para Relatorio
-│   │   │   ├── event_publisher_gateway.py        # RabbitMQ adapter para pub/sub
+│   │   ├── gateways/
+│   │   │   ├── relatorio_repository_gateway.py   # Adapter: SQLAlchemy -> Port
+│   │   │   ├── event_publisher_gateway.py        # Adapter: RabbitMQ -> Port
+│   │   │   ├── file_storage_gateway.py           # Adapter: aioboto3 S3 -> Port
+│   │   │   ├── markdown_report_writer_gateway.py # Adapter: PydanticAI LiteLLM -> Port
 │   │   │   └── __init__.py
-│   │   ├── presenters/                  # Formatadores de resposta HTTP
-│   │   │   ├── health_presenter.py
-│   │   │   ├── error_presenter.py
+│   │   ├── presenters/
+│   │   │   ├── health_presenter.py      # Formatador de resposta health
+│   │   │   ├── error_presenter.py       # Formatador de erros HTTP
 │   │   │   └── __init__.py
 │   │   └── __init__.py
 │   │
-│   ├── environment.py                   # Configurações via Pydantic Settings
-│   ├── main.py                          # Inicialização FastAPI, lifespan, exception handlers
+│   ├── environment.py                   # Settings com Pydantic (banco, RabbitMQ, S3, LLM)
+│   ├── main.py                          # FastAPI app, lifespan, exception handlers
 │   └── __init__.py
 │
-├── tests/                               # Testes automatizados
-│   ├── test_domain/                     # Testes de entidades
-│   ├── test_application/                # Testes de casos de uso (mocks de Ports)
+├── tests/                               # Testes automatizados (108 testes, 91% cobertura)
+│   ├── test_domain/                     # Testes de entidades e exceções
+│   ├── test_application/                # Testes de use cases com mocks de Ports
 │   ├── test_interface/                  # Testes de controllers (integração HTTP)
+│   ├── test_infrastructure/             # Testes de observability
+│   ├── conftest.py                      # Fixtures compartilhadas
 │   └── __init__.py
 │
-├── pyproject.toml                       # Configuração do projeto (uv, pytest, ruff)
-├── alembic.ini                          # Configuração das migrações
-├── newrelic.ini                         # Configuração do New Relic
-├── Dockerfile                           # Build multistage (builder + runtime)
-├── docker-compose.yml                   # Orquestração local (app, DB, RabbitMQ)
-├── docker/                              # Docker auxiliares
-│   └── postgres/                        # Dockerfile customizado do PostgreSQL com New Relic
-├── env.example                          # Variáveis de ambiente (template)
+├── Makefile                             # Atalhos de comandos (make quality, test-cov, etc)
+├── pyproject.toml                       # Configuração uv, pytest, ruff
+├── alembic.ini                          # Configuração Alembic
+├── newrelic.ini                         # Configuração New Relic
+├── Dockerfile                           # Multistage build (builder + runtime)
+├── docker-compose.yml                   # Orquestração local (app, DB, RabbitMQ, migrations)
+├── docker/
+│   └── postgres/
+│       └── Dockerfile                   # PostgreSQL com New Relic Infrastructure
+├── env.example                          # Template de variáveis de ambiente
 └── README.md                            # Este arquivo
 ```
 
 ## Pré-requisitos
 
-- Python 3.13+
-- Docker e Docker Compose
-- uv (gerenciador de dependências)
+- **Python**: 3.13 ou superior
+- **uv**: Gerenciador de dependências (https://docs.astral.sh/uv/getting-started/)
+- **Docker e Docker Compose**: Para execução containerizada (opcional para desenvolvimento local)
+- **PostgreSQL**: 15+ (necessário se rodar sem Docker)
+- **RabbitMQ**: 3.x (necessário se rodar sem Docker)
 
-## Configuração Local
+## Configuração e Execução Local
 
 ### 1. Navegar até o serviço
 
@@ -101,7 +117,7 @@ cd services/report-service
 cp env.example .env
 ```
 
-Edite o arquivo `.env` se desejar alterar as configurações padrão. As configurações padrão funcionam com o `docker-compose.yml` fornecido.
+Edite `.env` conforme necessário. As variáveis padrão estão otimizadas para Docker Compose (hostnomes de container). Para desenvolvimento bare metal, substitua hostnames pelos valores localhost.
 
 ### 3. Instalar dependências
 
@@ -109,117 +125,226 @@ Edite o arquivo `.env` se desejar alterar as configurações padrão. As configu
 uv sync
 ```
 
-Isso cria um ambiente virtual e instala as dependências de produção e desenvolvimento.
+Isso cria um ambiente virtual e instala todas as dependências (produção e desenvolvimento).
 
-### 4. Rodar migrations do banco de dados
+### 4. Executar a aplicação
 
-Se estiver usando banco de dados local (bare metal):
-
-```bash
-uv run alembic upgrade head
-```
-
-Se estiver usando Docker Compose, as migrações serão executadas automaticamente na inicialização.
-
-### 5. Iniciar a aplicação
-
-#### Opção A: Bare Metal
-
-Certifique-se de que PostgreSQL e RabbitMQ estão rodando:
-
-```bash
-uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-A aplicação estará disponível em `http://localhost:8000`.
-
-#### Opção B: Docker Compose
+#### Opção A: Docker Compose (Recomendado)
 
 ```bash
 docker-compose up -d
 ```
 
-Isso inicia:
-- **report-service**: Porta 8000
+Inicia automaticamente:
+- **report-service**: Porta 8002 (FastAPI)
 - **PostgreSQL**: Porta 5432 (volume persistente)
-- **RabbitMQ**: Porta 5672 (management UI na porta 15672)
+- **RabbitMQ**: Portas 5672 (AMQP) e 15672 (Management)
+- **Migrations**: Alembic upgrade head (automático)
+- **New Relic Infrastructure**: Agente de monitoramento (requer `NRIA_LICENSE_KEY`)
 
-Para visualizar logs:
+**Visualizar logs da aplicação:**
 
 ```bash
 docker-compose logs -f report-service
 ```
 
-Para parar todos os serviços:
+**Acessar o PostgreSQL via psql:**
+
+```bash
+docker-compose exec postgres psql -U report_user -d report_db
+```
+
+**Acessar RabbitMQ Management:**
+
+Abra `http://localhost:15672` (credenciais: veja `env.example`)
+
+**Parar todos os serviços:**
 
 ```bash
 docker-compose down
 ```
 
-## Testes e QA
+**Remover volumes persistentes (limpa banco de dados):**
 
-### Executar testes
+```bash
+docker-compose down -v
+```
+
+#### Opção B: Bare Metal (Desenvolvimento Local)
+
+Certifique-se de que PostgreSQL (porta 5432) e RabbitMQ (porta 5672) estão rodando localmente.
+
+Aplicar migrações:
+
+```bash
+uv run alembic upgrade head
+```
+
+Iniciar a aplicação com reload automático:
+
+```bash
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8002 --reload
+```
+
+A aplicação estará disponível em `http://localhost:8002`.
+
+**Health check:**
+
+```bash
+curl http://localhost:8002/health
+```
+
+## Testes e Qualidade de Código
+
+Os testes seguem o padrão **AAA** (Arrange, Act, Assert) e usam mocks para Ports (interfaces abstratas), nunca acessando implementações concretas como banco de dados real.
+
+### Executar todos os testes
 
 ```bash
 uv run pytest
 ```
 
-Executar testes com cobertura:
+### Testes com cobertura detalhada
 
 ```bash
-uv run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html --cov-report=term-missing
 ```
 
-### Executar linter (ruff)
+Gera relatório HTML em `htmlcov/index.html`.
+
+### Executar apenas um arquivo de testes
+
+```bash
+uv run pytest tests/test_application/ -v
+```
+
+### Executar apenas um teste específico
+
+```bash
+uv run pytest tests/test_application/test_use_cases.py::test_generate_report -v
+```
+
+### Linter e Formatação (Ruff)
+
+**Verificar estilo e imports:**
 
 ```bash
 uv run ruff check src tests
 ```
 
-Corrigir problemas de estilo automaticamente:
+**Corrigir automaticamente:**
 
 ```bash
-uv run ruff check src tests --fix
+uv run ruff check --fix src tests
 ```
 
-### Verificação de tipos (ty)
+**Formatar código (máximo 120 caracteres por linha):**
 
 ```bash
-uv run ty
+uv run ruff format src tests
+```
+
+### Type Checking (mypy via `ty`)
+
+```bash
+uv run ty check src/
+```
+
+### Pipeline de Qualidade Completo
+
+Atalho que executa formatação, linting, type checking e testes com cobertura:
+
+```bash
+make quality
+```
+
+Ou manualmente:
+
+```bash
+uv run ruff format src tests
+uv run ruff check --fix src tests
+uv run ty check src/
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+**Atalhos disponíveis no Makefile:**
+
+```bash
+make format       # Formata código
+make lint         # Verifica e corrige imports/estilo
+make typecheck    # Type checking
+make test-cov     # Testes com cobertura
+make quality      # Pipeline completo
 ```
 
 ## Endpoints da API
 
-### GET /api/v1/relatorios/{analise_id}
+### GET /v1/relatorios/{analise_id}
 
-Recupera um relatório gerado para uma análise específica.
+Recupera um relatório já gerado para uma análise específica pelo UUID da análise.
+
+**Parâmetros:**
+- `analise_id` (path, UUID): Identificador único da análise.
 
 **Response (200 OK):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "analise_id": "660e8400-e29b-41d4-a716-446655440001",
   "titulo": "Relatório de Análise Arquitetural",
+  "resumo": "Foram identificados 5 componentes arquiteturais e 3 riscos.",
   "conteudo": {
-    "resumo": "Análise da arquitetura do sistema...",
-    "componentes": [...],
-    "padroes": [...],
-    "recomendacoes": [...]
+    "componentes": [
+      {
+        "id": "comp_1",
+        "nome": "API Gateway"
+      },
+      {
+        "id": "comp_2",
+        "nome": "Auth Service"
+      }
+    ],
+    "riscos": [
+      {
+        "id": "risk_1",
+        "severidade": "critica",
+        "descricao": "Critical security issue"
+      }
+    ],
+    "estatisticas": {
+      "total_componentes": 5,
+      "total_riscos": 3,
+      "riscos_por_severidade": {
+        "critica": 1,
+        "alta": 1,
+        "media": 1,
+        "baixa": 0
+      }
+    }
   },
-  "criado_em": "2026-03-30T10:15:30Z",
-  "atualizado_em": "2026-03-30T10:16:00Z"
+  "s3_key": "relatorios/660e8400-e29b-41d4-a716-446655440001.md",
+  "criado_em": "2026-03-30T10:15:30Z"
 }
 ```
 
-**Erros:**
-- `404 Not Found`: Relatório não encontrado para a análise especificada
-- `500 Internal Server Error`: Erro ao recuperar o relatório
+**Códigos de erro:**
+
+- `404 Not Found`: Relatório não encontrado (ainda não foi gerado ou análise inválida)
+- `500 Internal Server Error`: Erro interno ao recuperar o relatório
+
+**Exemplo:**
+
+```bash
+curl -X GET "http://localhost:8002/v1/relatorios/660e8400-e29b-41d4-a716-446655440001"
+```
 
 ### GET /health
 
-Health check que valida conexões com dependências (DB, RabbitMQ).
+Health check que valida a saúde do serviço e suas dependências.
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "ok",
@@ -227,112 +352,218 @@ Health check que valida conexões com dependências (DB, RabbitMQ).
 }
 ```
 
+**Exemplo:**
+
+```bash
+curl http://localhost:8002/health
+```
+
 ## Arquitetura Clean Architecture
 
-O projeto segue os princípios de **Clean Architecture** com separação clara em camadas:
-
-### 1. Domain (Núcleo)
-
-Contém as regras de negócio fundamentais, sem dependências externas:
-- **Entities**: `Relatorio` — objeto com identidade única, contém os dados do relatório gerado
-- **Events**: `AnaliseConcluida`, `RelatorioGerado` — eventos de domínio
-- **Exceptions**: Erros customizados de negócio
-- **Ports (Interfaces)**: `RelatorioRepository`, `EventPublisher` — contratos abstratos
-
-**Dependências externas permitidas**: Apenas `pydantic` (para validação e modelagem).
-
-### 2. Application (Casos de Uso)
-
-Implementa os cenários de negócio:
-- **Use Cases**: `GenerateReport` (consome evento e gera relatório), `GetReport` (recupera relatório)
-- **DTOs**: `RelatorioResponse` — dados para saída
-- **Ports (Interfaces)**: `EventPublisher` — contrato para publicação de eventos
-
-Depende do Domain, mas nunca de implementações concretas de infraestrutura.
-
-### 3. Infrastructure (Detalhes Técnicos)
-
-Implementações concretas de conexões externas:
-- **Database**: SQLAlchemy async, migrações com Alembic
-- **Messaging**: RabbitMQ (consumidor de `AnaliseConcluida`, publicador de `RelatorioGerado`)
-- **Models**: Mapeamento ORM das tabelas
-
-### 4. Interface (Adapters)
-
-Adapta as camadas internas aos protocolos externos:
-- **Controllers**: Rotas FastAPI que delegam para use cases
-- **Gateways**: Implementações concretas dos Ports (ex: `SQLAlchemyRelatorioRepository`, `RabbitMQEventPublisherGateway`)
-- **Presenters**: Formatadores de respostas HTTP
-
-### Fluxo de Processamento
-
-```
-1. RabbitMQ Consumer recebe AnaliseConcluida
-   ↓
-2. GenerateReport.execute() (Use Case)
-   ↓
-3. Valida dados da análise (Domain logic)
-   ↓
-4. Monta estrutura do relatório (Domain logic)
-   ↓
-5. Persiste via SQLAlchemyRelatorioRepository (Adapter → Infra)
-   ↓
-6. Publica RelatorioGerado via RabbitMQEventPublisher (Adapter → Infra)
-```
-
-### Inversão de Dependência (Ports & Adapters)
-
-Use cases injetam Ports (interfaces abstratas), não Adapters (implementações concretas):
-
-```python
-# Correto: Use case depende de Ports, implementações são injetadas
-use_case = GenerateReport(
-    relatorio_repository=SQLAlchemyRelatorioRepository(session),  # Implementação
-    event_publisher=RabbitMQEventPublisherGateway(),             # Implementação
-)
-```
-
-Testes unitários usam mocks dos Ports, nunca acessam banco real:
-
-```python
-# Mock de Port
-class MockRelatorioRepository(RelatorioRepository):
-    async def salvar(self, relatorio: Relatorio) -> Relatorio:
-        # Implementação fake
-        pass
-
-# Teste injeta mock
-use_case = GenerateReport(
-    relatorio_repository=MockRelatorioRepository(),
-    # ...
-)
-```
+O projeto segue rigorosamente os princípios de **Clean Architecture** com separação clara de responsabilidades e inversão de dependência obrigatória via Ports & Adapters.
 
 ## Variáveis de Ambiente
 
-Veja `env.example` para a lista completa. As principais:
+O arquivo `env.example` contém todas as variáveis de configuração. Copie para `.env` antes de executar:
+
+```bash
+cp env.example .env
+```
+
+As configurações são carregadas via **Pydantic Settings** em `environment.py` com validação automática.
+
+### Banco de Dados (PostgreSQL)
 
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
-| `DATABASE_HOST` | localhost | Host PostgreSQL |
-| `DATABASE_PORT` | 5432 | Porta PostgreSQL |
-| `DATABASE_USER` | report_user | Usuário DB |
-| `DATABASE_PASSWORD` | report_pass | Senha DB |
-| `DATABASE_NAME` | report_db | Nome do banco |
-| `RABBITMQ_HOST` | localhost | Host RabbitMQ |
-| `RABBITMQ_PORT` | 5672 | Porta RabbitMQ |
-| `RABBITMQ_EXCHANGE_NAME` | analise.events | Exchange para publicação/consumo |
-| `RABBITMQ_QUEUE_NAME` | report-service.reports | Fila de consumo de eventos |
-| `DEBUG` | false | Ativa modo debug |
-| `LOG_LEVEL` | INFO | Nível de log (DEBUG, INFO, WARNING, ERROR) |
+| `DATABASE_HOST` | postgres | Host do PostgreSQL (postgres em Docker Compose) |
+| `DATABASE_PORT` | 5432 | Porta do PostgreSQL |
+| `DATABASE_USER` | report_user | Usuário do banco |
+| `DATABASE_PASSWORD` | report_pass | Senha do banco |
+| `DATABASE_NAME` | report_db | Nome do banco de dados |
 
-## Recursos Adicionais
+**Nota**: Em Docker Compose, use `postgres` como host. Para bare metal, use `localhost`.
 
-- **Logging**: Utiliza `structlog` com contexto estruturado
-- **Monitoramento**: Integração com New Relic (`newrelic`)
-- **Validação**: Pydantic para tipos e validação automática
-- **Async/Await**: Operações totalmente assíncronas com asyncpg e aio-pika
+### RabbitMQ (Message Broker)
 
-## Suporte
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `RABBITMQ_HOST` | rabbitmq | Host do RabbitMQ (rabbitmq em Docker Compose) |
+| `RABBITMQ_PORT` | 5672 | Porta AMQP |
+| `RABBITMQ_USER` | archlens | Usuário RabbitMQ |
+| `RABBITMQ_PASSWORD` | archlens_dev | Senha RabbitMQ |
+| `RABBITMQ_EXCHANGE_NAME` | analise.events | Exchange para pub/sub de eventos |
+| `RABBITMQ_QUEUE_NAME` | report-service.reports | Fila dedicada para consumir `AnaliseConcluida` |
 
-Para dúvidas ou problemas, consulte a documentação do projeto principal ou entre em contato com a equipe de arquitetura.
+### S3/LocalStack (Object Storage)
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `S3_ENDPOINT_URL` | http://localstack:4566 | URL do S3/LocalStack (localstack em Docker) |
+| `AWS_ACCESS_KEY_ID` | test | Chave de acesso AWS (dummy para LocalStack) |
+| `AWS_SECRET_ACCESS_KEY` | test | Chave secreta AWS (dummy para LocalStack) |
+| `S3_BUCKET_NAME` | archlens-diagramas | Bucket para armazenar relatórios Markdown |
+| `AWS_REGION` | us-east-1 | Região AWS |
+
+### LLM (Geração de Markdown via LiteLLM)
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `LLM_BASE_URL` | http://litellm:4000 | URL do proxy LiteLLM (litellm em Docker) |
+| `LLM_API_KEY` | sk-litellm-dev | Chave API do LiteLLM |
+| `LLM_MODEL_NAME` | archlens-analyzer | Modelo LLM configurado no LiteLLM |
+
+### Aplicação
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `SERVICE_NAME` | report-service | Nome do serviço (para logs estruturados) |
+| `DEBUG` | false | Ativa modo debug (False em produção) |
+| `LOG_LEVEL` | INFO | Nível de logging (DEBUG, INFO, WARNING, ERROR) |
+
+### New Relic (Observabilidade)
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `NEW_RELIC_USER_KEY` | abc | Chave de usuário New Relic (deixe em branco se não usar) |
+| `NEW_RELIC_LICENSE_KEY` | abc | Licença New Relic (deixe em branco se não usar) |
+| `NEW_RELIC_ACCOUNT_ID` | 123 | ID da conta New Relic |
+| `NRIA_DISPLAY_NAME` | report-service | Nome exibido no New Relic Infrastructure |
+| `NRIA_LICENSE_KEY` | abc | Licença do agente New Relic Infrastructure |
+
+**Nota sobre New Relic**: O serviço funciona normalmente sem essas credenciais. Se estiver vazio, os agentes simplesmente não enviarão dados.
+
+### Guia de Configuração por Ambiente
+
+#### Docker Compose (Recomendado)
+
+Use os valores de `env.example` conforme fornecidos. Os hostnames referem-se aos nomes dos containers na rede interna.
+
+#### Bare Metal (Desenvolvimento Local)
+
+Edite `.env` e substitua os hostnames por `localhost`:
+
+```bash
+DATABASE_HOST=localhost
+RABBITMQ_HOST=localhost
+S3_ENDPOINT_URL=http://localhost:4566
+LLM_BASE_URL=http://localhost:4000
+```
+
+Certifique-se de que os serviços (PostgreSQL, RabbitMQ, LocalStack, LiteLLM) estão rodando localmente nas portas corretas.
+
+## Tecnologias e Dependências
+
+### Principais Bibliotecas
+
+| Biblioteca | Versão | Propósito |
+|------------|--------|----------|
+| **FastAPI** | >=0.115.0 | Framework web assíncrono |
+| **Uvicorn** | >=0.34.0 | Servidor ASGI |
+| **Pydantic** | >=2.10.0 | Validação de dados e settings |
+| **SQLAlchemy** | >=2.0.36 | ORM assíncrono |
+| **asyncpg** | >=0.30.0 | Driver PostgreSQL async |
+| **Alembic** | >=1.14.0 | Migrações de banco de dados |
+| **aio-pika** | >=9.5.0 | Cliente RabbitMQ assíncrono |
+| **aioboto3** | >=15.5.0 | Cliente AWS S3 assíncrono |
+| **PydanticAI** | >=1.38.0 | Framework para agentes com LLMs |
+| **Loguru** | >=0.7.0 | Logging estruturado |
+| **newrelic** | >=10.0.0 | Observabilidade com New Relic |
+
+### Dependências de Desenvolvimento
+
+- **pytest** >=8.3.0 — Framework de testes
+- **pytest-asyncio** >=0.24.0 — Plugin para testes async
+- **pytest-cov** — Cobertura de código
+- **ruff** >=0.8.0 — Linter e formatador ultra-rápido
+- **ty** >=0.0.26 — Type checker (mypy)
+- **pre-commit** >=4.5.1 — Git hooks automatizados
+
+## Docker
+
+### Multistage Build
+
+O `Dockerfile` utiliza arquitetura de multistage build:
+
+1. **Stage `builder`**: Compila dependências Python em ambiente isolado
+2. **Stage `runtime`**: Copia apenas os artefatos necessários para imagem final
+
+Isso reduz drasticamente o tamanho da imagem final.
+
+### Build e Execução
+
+**Build da imagem:**
+
+```bash
+docker build -t report-service:latest .
+```
+
+**Executar container:**
+
+```bash
+docker run -p 8002:8002 --env-file .env report-service:latest
+```
+
+**Build com target específico:**
+
+```bash
+docker build --target runtime -t report-service:latest .
+```
+
+## Logging e Observabilidade
+
+### Loguru
+
+O projeto utiliza **Loguru** para logging estruturado com contexto
+
+Logs são formatados com cores no terminal e estruturados em JSON para máquinas.
+
+### New Relic Integration
+
+O serviço envia dados para New Relic automaticamente via agentes:
+- **APM**: Traces de requisições e eventos customizados
+- **Infrastructure**: Métricas de sistema e container
+- **Custom Events**: Métricas específicas da aplicação (geração de relatórios, tempos, etc.)
+
+Configure `NEW_RELIC_LICENSE_KEY` e `NRIA_LICENSE_KEY` para ativar.
+
+### Métricas Customizadas
+
+O `MetricsRecorder` em `observability/metrics.py` registra:
+- Tempo de geração de relatório
+- Contagem de relatórios gerados
+- Falhas na geração
+
+## Estrutura de Código
+
+### Convenções Adotadas
+
+- **Clean Architecture**: Camadas bem definidas com dependências apontando para o centro
+- **Ports & Adapters**: Interfaces abstratas para inversão de controle
+- **Pydantic**: Único framework externo permitido no Domain
+- **Async/Await**: Todas as operações I/O são assíncronas
+- **Type Hints**: Obrigatórios em todas as funções e métodos
+- **Docstrings**: Descrevem propósito, parâmetros e retorno
+- **PEP 8**: Nomes em snake_case (funções/variáveis) e PascalCase (classes)
+
+### Sem Prints
+
+Proibido usar `print()` em código de produção. Sempre use:
+
+```python
+from src.infrastructure.observability import get_logger
+logger = get_logger()
+logger.info("mensagem", extra_field=value)
+```
+
+### Sem Funções Aninhadas
+
+Funções auxiliares são definidas no escopo do módulo ou como métodos privados (prefixo `_`), não aninhadas dentro de outras funções.
+
+## Suporte e Contribuição
+
+Para dúvidas, bugs ou sugestões:
+
+1. Consulte a documentação do projeto principal
+2. Abra uma issue no repositório
+3. Entre em contato com a equipe de arquitetura
