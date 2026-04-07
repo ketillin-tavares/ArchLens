@@ -1,16 +1,15 @@
 import uuid
 from datetime import UTC, datetime
 
-import structlog
-
 from src.application.dtos import DiagramaUploadResponse
 from src.application.ports import EventPublisher, FileStorage
 from src.domain.entities import Analise, Diagrama
 from src.domain.events import DiagramaEnviado
 from src.domain.repositories import AnaliseRepository, DiagramaRepository
 from src.domain.value_objects import ArquivoDiagrama, StatusAnalise
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class SubmitDiagram:

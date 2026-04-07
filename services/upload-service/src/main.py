@@ -2,34 +2,40 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from src.application.use_cases import HandleStatusUpdate
 from src.domain.exceptions import (
+    AnaliseNaoConcluidaError,
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RelatorioIndisponivelError,
     RetentativaInvalidaError,
 )
 from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
 from src.infrastructure.messaging.shared import rabbitmq_publisher
-from src.infrastructure.observability import MetricsRecorder, configure_logging
+from src.infrastructure.observability import MetricsRecorder, configure_logging, get_logger
 from src.interface.controllers import analise_router, health_router
 from src.interface.gateways.analise_repository_gateway import SQLAlchemyAnaliseRepository
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
-async def _status_update_handler(analise_id: str, novo_status: str, erro_detalhe: str | None = None) -> None:
+async def _status_update_handler(
+    analise_id: str,
+    novo_status: str,
+    erro_detalhe: str | None = None,
+    relatorio_s3_key: str | None = None,
+) -> None:
     """Handler que processa eventos de status recebidos do RabbitMQ."""
     async with async_session_factory() as session:
         repo = SQLAlchemyAnaliseRepository(session)
         use_case = HandleStatusUpdate(analise_repository=repo)
-        await use_case.execute(analise_id, novo_status, erro_detalhe)
+        await use_case.execute(analise_id, novo_status, erro_detalhe, relatorio_s3_key)
         await session.commit()
 
     MetricsRecorder.record_analise_por_status(novo_status)
@@ -102,3 +108,15 @@ async def analise_nao_encontrada_handler(request: Request, exc: AnaliseNaoEncont
 async def retentativa_invalida_handler(request: Request, exc: RetentativaInvalidaError) -> JSONResponse:
     """Traduz RetentativaInvalidaError para HTTP 409."""
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(AnaliseNaoConcluidaError)
+async def analise_nao_concluida_handler(request: Request, exc: AnaliseNaoConcluidaError) -> JSONResponse:
+    """Traduz AnaliseNaoConcluidaError para HTTP 409."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(RelatorioIndisponivelError)
+async def relatorio_indisponivel_handler(request: Request, exc: RelatorioIndisponivelError) -> JSONResponse:
+    """Traduz RelatorioIndisponivelError para HTTP 404."""
+    return JSONResponse(status_code=404, content={"detail": str(exc)})

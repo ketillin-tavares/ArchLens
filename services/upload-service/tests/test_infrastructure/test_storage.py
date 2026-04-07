@@ -119,6 +119,33 @@ class TestS3StorageClient:
             assert result == expected_content
             mock_s3.get_object.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_generate_presigned_url(self) -> None:
+        """Test generating a presigned URL for S3 object."""
+        # Arrange
+        client = S3StorageClient()
+        s3_key = "reports/test-uuid.md"
+        expected_url = "https://s3.example.com/reports/test-uuid.md?signed=abc"
+
+        mock_s3 = AsyncMock()
+        mock_s3.generate_presigned_url = AsyncMock(return_value=expected_url)
+
+        mock_session = MagicMock()
+        mock_session.client.return_value.__aenter__ = AsyncMock(return_value=mock_s3)
+        mock_session.client.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(client, "_session", mock_session):
+            # Act
+            result = await client.generate_presigned_url(s3_key, 3600)
+
+            # Assert
+            assert result == expected_url
+            mock_s3.generate_presigned_url.assert_called_once_with(
+                "get_object",
+                Params={"Bucket": client._settings.bucket_name, "Key": s3_key},
+                ExpiresIn=3600,
+            )
+
 
 class TestStorageCircuitBreaker:
     """Tests for storage circuit breaker configuration."""

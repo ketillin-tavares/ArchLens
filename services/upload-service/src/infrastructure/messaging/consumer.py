@@ -3,11 +3,12 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import aio_pika
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
+from src.infrastructure.observability.tracing import rabbitmq_consume_trace
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 EVENT_STATUS_MAP: dict[str, str | None] = {
     "ProcessamentoIniciado": "em_processamento",
@@ -29,11 +30,12 @@ class RabbitMQConsumer:
 
     def __init__(
         self,
-        status_update_handler: Callable[[str, str, str | None], Coroutine[Any, Any, None]],
+        status_update_handler: Callable[[str, str, str | None, str | None], Coroutine[Any, Any, None]],
     ) -> None:
         """
         Args:
-            status_update_handler: Async callable que recebe (analise_id, novo_status, erro_detalhe).
+            status_update_handler: Async callable que recebe
+                (analise_id, novo_status, erro_detalhe, relatorio_s3_key).
         """
         self._settings = get_settings().rabbitmq
         self._connection: aio_pika.abc.AbstractRobustConnection | None = None
@@ -74,21 +76,23 @@ class RabbitMQConsumer:
         """
         async with message.process():
             try:
-                body = json.loads(message.body.decode())
-                event_type = body.get("event_type", "")
-                payload = body.get("payload", {})
-                analise_id = payload.get("analise_id")
+                with rabbitmq_consume_trace("_process_message", message.headers):
+                    body = json.loads(message.body.decode())
+                    event_type = body.get("event_type", "")
+                    payload = body.get("payload", {})
+                    analise_id = payload.get("analise_id")
 
-                logger.info("evento_recebido", event_type=event_type, analise_id=analise_id)
+                    logger.info("evento_recebido", event_type=event_type, analise_id=analise_id)
 
-                novo_status = EVENT_STATUS_MAP.get(event_type)
-                if novo_status is None:
-                    logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
-                    return
+                    novo_status = EVENT_STATUS_MAP.get(event_type)
+                    if novo_status is None:
+                        logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
+                        return
 
-                erro_detalhe = payload.get("erro_detalhe") if event_type == "AnaliseFalhou" else None
+                    erro_detalhe = payload.get("erro_detalhe") if event_type == "AnaliseFalhou" else None
+                    relatorio_s3_key = payload.get("s3_key") if event_type == "RelatorioGerado" else None
 
-                await self._handler(analise_id, novo_status, erro_detalhe)
+                    await self._handler(analise_id, novo_status, erro_detalhe, relatorio_s3_key)
 
             except Exception:
                 logger.exception("erro_processando_evento", message_body=message.body.decode()[:500])

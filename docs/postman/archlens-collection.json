@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "archlens-e2e-collection",
 		"name": "ArchLens - API Collection",
-		"description": "Coleção completa para testar o fluxo end-to-end do ArchLens.\n\n## Fluxo Principal\n1. **POST** Upload de diagrama → recebe `analise_id`\n2. **GET** Polling do status da análise → aguardar `concluido`\n3. **GET** Consultar processamento (componentes e riscos)\n4. **GET** Consultar relatório gerado\n\n## Ambientes\n- **Kong Gateway** (porta 8000) — ponto de entrada unificado\n- **Acesso Direto** (portas 8010, 8011, 8012) — debug individual\n\n## Variáveis\n- `{{base_url}}` — URL base do gateway ou serviço direto\n- `{{analise_id}}` — preenchido automaticamente após upload",
+		"description": "Coleção completa para testar o fluxo end-to-end do ArchLens.\n\n## Fluxo Principal\n1. **POST** Upload de diagrama → recebe `analise_id`\n2. **GET** Polling do status da análise → aguardar `concluido`\n3. **GET** Consultar processamento (componentes e riscos)\n4. **GET** Consultar relatório gerado\n5. **GET** Download do relatório Markdown (pré-assinado)\n6. **POST** Retry de análise com status 'erro'\n\n## Ambientes\n- **Kong Gateway** (porta 8000) — ponto de entrada unificado\n- **Acesso Direto** (portas 8010, 8011, 8012) — debug individual\n\n## Variáveis\n- `{{base_url}}` — URL base do gateway ou serviço direto\n- `{{analise_id}}` — preenchido automaticamente após upload",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"auth": {
@@ -55,8 +55,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{base_url}}/upload/health",
-							"host": ["{{base_url}}"],
-							"path": ["upload", "health"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"upload",
+								"health"
+							]
 						},
 						"description": "Verifica a saúde do Upload Service e suas dependências (database, rabbitmq, s3)."
 					},
@@ -88,8 +93,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{base_url}}/processing/health",
-							"host": ["{{base_url}}"],
-							"path": ["processing", "health"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"processing",
+								"health"
+							]
 						},
 						"description": "Verifica a saúde do Processing Service e suas dependências (database, rabbitmq, llm_api)."
 					},
@@ -118,8 +128,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{base_url}}/report/health",
-							"host": ["{{base_url}}"],
-							"path": ["report", "health"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"report",
+								"health"
+							]
 						},
 						"description": "Verifica a saúde do Report Service e suas dependências (database, rabbitmq)."
 					},
@@ -149,15 +164,26 @@
 						"url": {
 							"raw": "http://localhost:15672/api/overview",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "15672",
-							"path": ["api", "overview"]
+							"path": [
+								"api",
+								"overview"
+							]
 						},
 						"auth": {
 							"type": "basic",
 							"basic": [
-								{"key": "username", "value": "archlens"},
-								{"key": "password", "value": "archlens_dev"}
+								{
+									"key": "username",
+									"value": "archlens"
+								},
+								{
+									"key": "password",
+									"value": "archlens_dev"
+								}
 							]
 						},
 						"description": "Verifica o status do RabbitMQ via Management API."
@@ -185,9 +211,13 @@
 						"url": {
 							"raw": "http://localhost:4000/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "4000",
-							"path": ["health"]
+							"path": [
+								"health"
+							]
 						},
 						"description": "Verifica a saúde do LiteLLM (proxy LLM)."
 					},
@@ -214,9 +244,14 @@
 						"url": {
 							"raw": "http://localhost:4566/_localstack/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "4566",
-							"path": ["_localstack", "health"]
+							"path": [
+								"_localstack",
+								"health"
+							]
 						},
 						"description": "Verifica o status do LocalStack (S3 local)."
 					},
@@ -282,9 +317,14 @@
 							]
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/analises",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "analises"]
+							"raw": "{{base_url}}/v1/analises",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises"
+							]
 						},
 						"description": "Envia um diagrama de arquitetura para análise.\n\n**Tipos aceitos:** image/png, image/jpeg, application/pdf\n**Tamanho máximo:** 10MB\n\nO `analise_id` retornado é salvo automaticamente na variável `{{analise_id}}` para uso nas próximas requests."
 					},
@@ -305,9 +345,14 @@
 									]
 								},
 								"url": {
-									"raw": "{{base_url}}/api/v1/analises",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "analises"]
+									"raw": "{{base_url}}/v1/analises",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"analises"
+									]
 								}
 							},
 							"status": "Accepted",
@@ -350,9 +395,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "analises", "{{analise_id}}"]
+							"raw": "{{base_url}}/v1/analises/{{analise_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}"
+							]
 						},
 						"description": "Consulta o status de uma análise pelo ID.\n\n**Status possíveis:**\n- `recebido` — diagrama recebido, aguardando processamento\n- `processando` — LLM está analisando o diagrama\n- `concluido` — análise finalizada com sucesso\n- `erro` — falha durante o processamento\n\nRepita esta request (polling) até o status ser `concluido` ou `erro`."
 					},
@@ -362,9 +413,15 @@
 							"originalRequest": {
 								"method": "GET",
 								"url": {
-									"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "analises", "{{analise_id}}"]
+									"raw": "{{base_url}}/v1/analises/{{analise_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"analises",
+										"{{analise_id}}"
+									]
 								}
 							},
 							"status": "OK",
@@ -377,9 +434,15 @@
 							"originalRequest": {
 								"method": "GET",
 								"url": {
-									"raw": "{{base_url}}/api/v1/analises/{{analise_id}}",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "analises", "{{analise_id}}"]
+									"raw": "{{base_url}}/v1/analises/{{analise_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"analises",
+										"{{analise_id}}"
+									]
 								}
 							},
 							"status": "OK",
@@ -421,9 +484,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/processamentos/{{analise_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+							"raw": "{{base_url}}/v1/processamentos/{{analise_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"processamentos",
+								"{{analise_id}}"
+							]
 						},
 						"description": "Consulta o resultado do processamento de uma análise.\n\nRetorna os componentes de arquitetura identificados e os riscos encontrados pelo LLM."
 					},
@@ -433,9 +502,15 @@
 							"originalRequest": {
 								"method": "GET",
 								"url": {
-									"raw": "{{base_url}}/api/v1/processamentos/{{analise_id}}",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+									"raw": "{{base_url}}/v1/processamentos/{{analise_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"processamentos",
+										"{{analise_id}}"
+									]
 								}
 							},
 							"status": "OK",
@@ -476,9 +551,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/relatorios/{{analise_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "relatorios", "{{analise_id}}"]
+							"raw": "{{base_url}}/v1/relatorios/{{analise_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"relatorios",
+								"{{analise_id}}"
+							]
 						},
 						"description": "Consulta o relatório gerado para uma análise.\n\nO relatório só estará disponível após o status da análise ser `concluido`."
 					},
@@ -488,15 +569,91 @@
 							"originalRequest": {
 								"method": "GET",
 								"url": {
-									"raw": "{{base_url}}/api/v1/relatorios/{{analise_id}}",
-									"host": ["{{base_url}}"],
-									"path": ["api", "v1", "relatorios", "{{analise_id}}"]
+									"raw": "{{base_url}}/v1/relatorios/{{analise_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"relatorios",
+										"{{analise_id}}"
+									]
 								}
 							},
 							"status": "OK",
 							"code": 200,
 							"_postman_previewlanguage": "json",
 							"body": "{\n    \"id\": \"aa0e8400-e29b-41d4-a716-446655440000\",\n    \"analise_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"titulo\": \"Análise Arquitetural - Diagrama de Microsserviços\",\n    \"resumo\": \"Foram identificados 5 componentes e 2 riscos arquiteturais no diagrama analisado.\",\n    \"conteudo\": {\n        \"total_componentes\": 5,\n        \"total_riscos\": 2,\n        \"componentes_por_tipo\": {\"service\": 3, \"database\": 1, \"api_gateway\": 1},\n        \"riscos_por_severidade\": {\"alta\": 1, \"media\": 1}\n    },\n    \"criado_em\": \"2026-04-04T12:00:06Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "5. Download Relatório",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Download retorna 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Resposta contém download_url e expira_em', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('download_url');",
+									"    pm.expect(json).to.have.property('expira_em');",
+									"    pm.expect(json.download_url).to.be.a('string');",
+									"    pm.expect(json.download_url).to.include('s3.amazonaws.com');",
+									"",
+									"    console.log('Download URL:', json.download_url);",
+									"    console.log('Expira em:', json.expira_em);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/analises/{{analise_id}}/relatorio/download",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}",
+								"relatorio",
+								"download"
+							]
+						},
+						"description": "Gera URL pré-assinada para download do relatório Markdown.\n\nA análise deve estar com status 'analisado' e ter um relatório disponível no S3.\nA URL gerada expira em 3600 segundos."
+					},
+					"response": [
+						{
+							"name": "200 - URL gerada",
+							"originalRequest": {
+								"method": "GET",
+								"url": {
+									"raw": "{{base_url}}/v1/analises/{{analise_id}}/relatorio/download",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"v1",
+										"analises",
+										"{{analise_id}}",
+										"relatorio",
+										"download"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"download_url\": \"https://s3.amazonaws.com/bucket/relatorios/550e8400-e29b-41d4-a716-446655440000.md?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...\",\n    \"expira_em\": \"2026-04-04T13:00:06Z\"\n}"
 						}
 					]
 				}
@@ -548,9 +705,14 @@
 							]
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/analises",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "analises"]
+							"raw": "{{base_url}}/v1/analises",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises"
+							]
 						},
 						"description": "Testa o envio de um arquivo com tipo não suportado.\n\nEnvie um arquivo .txt, .csv ou qualquer tipo que não seja PNG, JPEG ou PDF.\n\n**Esperado:** HTTP 400 com mensagem de erro."
 					},
@@ -596,9 +758,14 @@
 							]
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/analises",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "analises"]
+							"raw": "{{base_url}}/v1/analises",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises"
+							]
 						},
 						"description": "Testa o envio de um arquivo que excede o tamanho máximo de 10MB.\n\n**Esperado:** HTTP 413 com mensagem de erro."
 					},
@@ -633,9 +800,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/analises/00000000-0000-0000-0000-000000000000",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "analises", "00000000-0000-0000-0000-000000000000"]
+							"raw": "{{base_url}}/v1/analises/00000000-0000-0000-0000-000000000000",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises",
+								"00000000-0000-0000-0000-000000000000"
+							]
 						},
 						"description": "Testa consulta de status com um ID inexistente.\n\n**Esperado:** HTTP 404."
 					},
@@ -670,9 +843,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/processamentos/00000000-0000-0000-0000-000000000000",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "processamentos", "00000000-0000-0000-0000-000000000000"]
+							"raw": "{{base_url}}/v1/processamentos/00000000-0000-0000-0000-000000000000",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"processamentos",
+								"00000000-0000-0000-0000-000000000000"
+							]
 						},
 						"description": "Testa consulta de processamento com um ID inexistente.\n\n**Esperado:** HTTP 404."
 					},
@@ -707,9 +886,15 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/relatorios/00000000-0000-0000-0000-000000000000",
-							"host": ["{{base_url}}"],
-							"path": ["api", "v1", "relatorios", "00000000-0000-0000-0000-000000000000"]
+							"raw": "{{base_url}}/v1/relatorios/00000000-0000-0000-0000-000000000000",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"relatorios",
+								"00000000-0000-0000-0000-000000000000"
+							]
 						},
 						"description": "Testa consulta de relatório com um ID inexistente.\n\n**Esperado:** HTTP 404."
 					},
@@ -720,6 +905,94 @@
 							"code": 404,
 							"_postman_previewlanguage": "json",
 							"body": "{\n    \"detail\": \"Relatório ainda não gerado para esta análise\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Retry - Análise em estado inválido",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Retry em estado inválido retorna 409', function () {",
+									"    pm.response.to.have.status(409);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/analises/{{analise_id}}/retry",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}",
+								"retry"
+							]
+						},
+						"description": "Testa retry de análise em estado não 'erro'.\n\nUse um {{analise_id}} com status diferente de 'erro'.\n\n**Esperado:** HTTP 409 Conflict."
+					},
+					"response": [
+						{
+							"name": "409 - Estado inválido",
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Análise não pode ser retentada: status deve ser 'erro'\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Retry - Análise inexistente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Retry inexistente retorna 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/v1/analises/00000000-0000-0000-0000-000000000000/retry",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"analises",
+								"00000000-0000-0000-0000-000000000000",
+								"retry"
+							]
+						},
+						"description": "Testa retry de análise inexistente.\n\n**Esperado:** HTTP 404."
+					},
+					"response": [
+						{
+							"name": "404 - Análise não encontrada",
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"body": "{\n    \"detail\": \"Análise não encontrada\"\n}"
 						}
 					]
 				}
@@ -740,9 +1013,13 @@
 						"url": {
 							"raw": "http://localhost:8010/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8010",
-							"path": ["health"]
+							"path": [
+								"health"
+							]
 						},
 						"description": "Health check direto no Upload Service (porta 8010)."
 					},
@@ -780,9 +1057,14 @@
 						"url": {
 							"raw": "http://localhost:8010/v1/analises",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8010",
-							"path": ["v1", "analises"]
+							"path": [
+								"v1",
+								"analises"
+							]
 						},
 						"description": "Upload direto no Upload Service (porta 8010).\nPath: /v1/analises"
 					},
@@ -796,9 +1078,15 @@
 						"url": {
 							"raw": "http://localhost:8010/v1/analises/{{analise_id}}",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8010",
-							"path": ["v1", "analises", "{{analise_id}}"]
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}"
+							]
 						},
 						"description": "Consulta de status direto no Upload Service (porta 8010).\nPath: /v1/analises/{analise_id}"
 					},
@@ -812,9 +1100,13 @@
 						"url": {
 							"raw": "http://localhost:8011/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8011",
-							"path": ["health"]
+							"path": [
+								"health"
+							]
 						},
 						"description": "Health check direto no Processing Service (porta 8011)."
 					},
@@ -826,13 +1118,19 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8011/api/v1/processamentos/{{analise_id}}",
+							"raw": "http://localhost:8011/v1/processamentos/{{analise_id}}",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8011",
-							"path": ["api", "v1", "processamentos", "{{analise_id}}"]
+							"path": [
+								"v1",
+								"processamentos",
+								"{{analise_id}}"
+							]
 						},
-						"description": "Consulta de processamento direto no Processing Service (porta 8011).\nPath: /api/v1/processamentos/{analise_id}"
+						"description": "Consulta de processamento direto no Processing Service (porta 8011).\nPath: /v1/processamentos/{analise_id}"
 					},
 					"response": []
 				},
@@ -844,9 +1142,13 @@
 						"url": {
 							"raw": "http://localhost:8012/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8012",
-							"path": ["health"]
+							"path": [
+								"health"
+							]
 						},
 						"description": "Health check direto no Report Service (porta 8012)."
 					},
@@ -860,11 +1162,64 @@
 						"url": {
 							"raw": "http://localhost:8012/v1/relatorios/{{analise_id}}",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8012",
-							"path": ["v1", "relatorios", "{{analise_id}}"]
+							"path": [
+								"v1",
+								"relatorios",
+								"{{analise_id}}"
+							]
 						},
 						"description": "Consulta de relatório direto no Report Service (porta 8012).\nPath: /v1/relatorios/{analise_id}"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload - Download Relatório (direto)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8010/v1/analises/{{analise_id}}/relatorio/download",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8010",
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}",
+								"relatorio",
+								"download"
+							]
+						},
+						"description": "Download de relatório Markdown direto no Upload Service (porta 8010).\nPath: /v1/analises/{analise_id}/relatorio/download"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload - Retry Análise (direto)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8010/v1/analises/{{analise_id}}/retry",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8010",
+							"path": [
+								"v1",
+								"analises",
+								"{{analise_id}}",
+								"retry"
+							]
+						},
+						"description": "Retry de análise direto no Upload Service (porta 8010).\nPath: /v1/analises/{analise_id}/retry"
 					},
 					"response": []
 				}
@@ -885,15 +1240,27 @@
 						"url": {
 							"raw": "http://localhost:15672/api/queues/%2F",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "15672",
-							"path": ["api", "queues", "%2F"]
+							"path": [
+								"api",
+								"queues",
+								"%2F"
+							]
 						},
 						"auth": {
 							"type": "basic",
 							"basic": [
-								{"key": "username", "value": "archlens"},
-								{"key": "password", "value": "archlens_dev"}
+								{
+									"key": "username",
+									"value": "archlens"
+								},
+								{
+									"key": "password",
+									"value": "archlens_dev"
+								}
 							]
 						},
 						"description": "Lista todas as filas no RabbitMQ.\n\nFilas esperadas:\n- upload-service.status-updates\n- processing-service.diagrama-recebido\n- report-service.analise-concluida"
@@ -927,15 +1294,27 @@
 						"url": {
 							"raw": "http://localhost:15672/api/exchanges/%2F",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "15672",
-							"path": ["api", "exchanges", "%2F"]
+							"path": [
+								"api",
+								"exchanges",
+								"%2F"
+							]
 						},
 						"auth": {
 							"type": "basic",
 							"basic": [
-								{"key": "username", "value": "archlens"},
-								{"key": "password", "value": "archlens_dev"}
+								{
+									"key": "username",
+									"value": "archlens"
+								},
+								{
+									"key": "password",
+									"value": "archlens_dev"
+								}
 							]
 						},
 						"description": "Lista todos os exchanges no RabbitMQ.\n\nExchange esperado: analise.events (topic)"
@@ -950,9 +1329,13 @@
 						"url": {
 							"raw": "http://localhost:8001/status",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8001",
-							"path": ["status"]
+							"path": [
+								"status"
+							]
 						},
 						"description": "Status do Kong API Gateway via Admin API (porta 8001)."
 					},
@@ -979,9 +1362,13 @@
 						"url": {
 							"raw": "http://localhost:8001/routes",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8001",
-							"path": ["routes"]
+							"path": [
+								"routes"
+							]
 						},
 						"description": "Lista todas as routes configuradas no Kong."
 					},
@@ -995,9 +1382,13 @@
 						"url": {
 							"raw": "http://localhost:8001/services",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8001",
-							"path": ["services"]
+							"path": [
+								"services"
+							]
 						},
 						"description": "Lista todos os services registrados no Kong."
 					},
@@ -1011,9 +1402,13 @@
 						"url": {
 							"raw": "http://localhost:8001/plugins",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8001",
-							"path": ["plugins"]
+							"path": [
+								"plugins"
+							]
 						},
 						"description": "Lista todos os plugins ativos no Kong (rate-limiting, CORS, request-size-limiting)."
 					},
@@ -1027,9 +1422,14 @@
 						"url": {
 							"raw": "http://localhost:4566/_localstack/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "4566",
-							"path": ["_localstack", "health"]
+							"path": [
+								"_localstack",
+								"health"
+							]
 						},
 						"description": "Verifica o status do LocalStack e os serviços ativos (S3)."
 					},
@@ -1043,9 +1443,15 @@
 						"url": {
 							"raw": "http://localhost:8200/v1/sys/health",
 							"protocol": "http",
-							"host": ["localhost"],
+							"host": [
+								"localhost"
+							],
 							"port": "8200",
-							"path": ["v1", "sys", "health"]
+							"path": [
+								"v1",
+								"sys",
+								"health"
+							]
 						},
 						"description": "Verifica o status do HashiCorp Vault."
 					},

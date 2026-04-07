@@ -34,7 +34,11 @@ class AnaliseRepository(abc.ABC):
 
     @abc.abstractmethod
     async def atualizar_status(
-        self, analise_id: uuid.UUID, novo_status: StatusAnalise, erro_detalhe: str | None = None
+        self,
+        analise_id: uuid.UUID,
+        novo_status: StatusAnalise,
+        erro_detalhe: str | None = None,
+        relatorio_s3_key: str | None = None,
     ) -> bool:
         """
         Atualiza o status de uma análise de forma idempotente.
@@ -43,6 +47,7 @@ class AnaliseRepository(abc.ABC):
             analise_id: ID da análise.
             novo_status: Novo status a ser aplicado.
             erro_detalhe: Detalhes do erro (para status ERRO).
+            relatorio_s3_key: Chave S3 do relatório Markdown (para status ANALISADO).
 
         Returns:
             True se o status foi atualizado, False se foi ignorado.

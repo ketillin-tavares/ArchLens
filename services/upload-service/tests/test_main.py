@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.domain.exceptions import (
+    AnaliseNaoConcluidaError,
     AnaliseNaoEncontradaError,
     ArquivoInvalidoError,
     ArquivoTamanhoExcedidoError,
+    RelatorioIndisponivelError,
     RetentativaInvalidaError,
 )
 from src.main import (
@@ -46,7 +48,7 @@ class TestStatusUpdateHandler:
             await _status_update_handler(analise_id, novo_status)
 
             # Assert
-            mock_use_case.execute.assert_called_once_with(analise_id, novo_status, None)
+            mock_use_case.execute.assert_called_once_with(analise_id, novo_status, None, None)
             mock_session.commit.assert_called_once()
             mock_metrics.record_analise_por_status.assert_called_once_with(novo_status)
 
@@ -78,7 +80,7 @@ class TestStatusUpdateHandler:
             await _status_update_handler(analise_id, novo_status, erro_detalhe)
 
             # Assert
-            mock_use_case.execute.assert_called_once_with(analise_id, novo_status, erro_detalhe)
+            mock_use_case.execute.assert_called_once_with(analise_id, novo_status, erro_detalhe, None)
             mock_metrics.record_analise_por_status.assert_called_once_with(novo_status)
             mock_metrics.record_falha.assert_called_once()
 
@@ -111,6 +113,38 @@ class TestStatusUpdateHandler:
             # Assert
             mock_metrics.record_analise_por_status.assert_called_once()
             mock_metrics.record_falha.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_status_update_handler_with_relatorio_s3_key(self) -> None:
+        """Test status update handling with relatorio S3 key."""
+        # Arrange
+        analise_id = "test-uuid-123"
+        novo_status = "analisado"
+        relatorio_s3_key = "reports/test-uuid-123.md"
+
+        with (
+            patch("src.main.async_session_factory") as mock_session_factory,
+            patch("src.main.SQLAlchemyAnaliseRepository") as mock_repo_class,
+            patch("src.main.HandleStatusUpdate") as mock_use_case_class,
+            patch("src.main.MetricsRecorder") as mock_metrics,
+        ):
+            # Setup mocks
+            mock_session = AsyncMock()
+            mock_session_factory.return_value.__aenter__.return_value = mock_session
+
+            mock_repo = AsyncMock()
+            mock_repo_class.return_value = mock_repo
+
+            mock_use_case = AsyncMock()
+            mock_use_case_class.return_value = mock_use_case
+
+            # Act
+            await _status_update_handler(analise_id, novo_status, None, relatorio_s3_key)
+
+            # Assert
+            mock_use_case.execute.assert_called_once_with(analise_id, novo_status, None, relatorio_s3_key)
+            mock_session.commit.assert_called_once()
+            mock_metrics.record_analise_por_status.assert_called_once_with(novo_status)
 
 
 class TestAppSetup:
@@ -162,6 +196,18 @@ class TestExceptionHandlers:
         """Test RetentativaInvalidaError exception handler."""
         # Arrange - just verify the handler is registered
         assert RetentativaInvalidaError in app.exception_handlers
+
+    @pytest.mark.asyncio
+    async def test_analise_nao_concluida_exception_handler(self) -> None:
+        """Test AnaliseNaoConcluidaError exception handler."""
+        # Arrange - just verify the handler is registered
+        assert AnaliseNaoConcluidaError in app.exception_handlers
+
+    @pytest.mark.asyncio
+    async def test_relatorio_indisponivel_exception_handler(self) -> None:
+        """Test RelatorioIndisponivelError exception handler."""
+        # Arrange - just verify the handler is registered
+        assert RelatorioIndisponivelError in app.exception_handlers
 
 
 class TestLifespanContext:

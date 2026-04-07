@@ -1,12 +1,11 @@
 import json
 
-import structlog
-
 from src.application.ports import LLMClient
 from src.domain.exceptions import SchemaValidationError
 from src.domain.schemas import AnaliseResultSchema
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 async def validate_and_parse(raw_response: str, llm_client: LLMClient) -> AnaliseResultSchema:

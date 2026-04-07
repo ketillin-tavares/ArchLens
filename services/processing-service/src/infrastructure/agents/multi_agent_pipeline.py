@@ -1,4 +1,3 @@
-import structlog
 from pydantic_ai.models.openai import OpenAIChatModel
 
 from src.application.sanity_checks import check_sanity
@@ -7,8 +6,9 @@ from src.domain.schemas import AnaliseResultSchema
 from src.infrastructure.agents.analyzer_agent import AnalyzerAgent
 from src.infrastructure.agents.extractor_agent import ExtractorAgent
 from src.infrastructure.agents.judge_agent import JudgeAgent
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 JUDGE_THRESHOLD: float = 7.0
 

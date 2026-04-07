@@ -216,6 +216,7 @@ class TestRabbitMQPublisher:
         assert mock_exchange.publish.call_count == 3
 
 
+@patch("src.infrastructure.observability.tracing._newrelic_agent", None)
 class TestRabbitMQConsumer:
     """Tests for the RabbitMQConsumer class."""
 
@@ -230,6 +231,38 @@ class TestRabbitMQConsumer:
         # Assert
         assert consumer._handler == mock_handler
         assert consumer._connection is None
+
+    @patch("src.infrastructure.messaging.consumer.aio_pika.connect_robust")
+    async def test_start_connects_and_binds(self, mock_connect: AsyncMock) -> None:
+        """Test that start connects, configures QoS, gets exchange, declares queue, binds and consumes."""
+        # Arrange
+        mock_handler = AsyncMock()
+        mock_connection = AsyncMock()
+        mock_channel = AsyncMock()
+        mock_exchange = AsyncMock()
+        mock_queue = AsyncMock()
+
+        mock_connect.return_value = mock_connection
+        mock_connection.channel = AsyncMock(return_value=mock_channel)
+        mock_channel.set_qos = AsyncMock()
+        mock_channel.get_exchange = AsyncMock(return_value=mock_exchange)
+        mock_channel.declare_queue = AsyncMock(return_value=mock_queue)
+        mock_queue.bind = AsyncMock()
+        mock_queue.consume = AsyncMock()
+
+        consumer = RabbitMQConsumer(report_handler=mock_handler)
+
+        # Act
+        await consumer.start()
+
+        # Assert
+        mock_connect.assert_called_once()
+        mock_connection.channel.assert_called_once()
+        mock_channel.set_qos.assert_called_once_with(prefetch_count=10)
+        mock_channel.get_exchange.assert_called_once()
+        mock_channel.declare_queue.assert_called_once()
+        mock_queue.bind.assert_called_once()
+        mock_queue.consume.assert_called_once_with(consumer._process_message)
 
     async def test_process_message_ignores_non_analise_concluida_event(self) -> None:
         """Test that consumer ignores events that are not AnaliseConcluida."""
@@ -293,6 +326,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -323,6 +357,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -346,6 +381,7 @@ class TestRabbitMQConsumer:
 
         mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
         mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {}
         mock_message.process = MagicMock(return_value=AsyncMock())
         mock_message.process.return_value.__aenter__ = AsyncMock()
         mock_message.process.return_value.__aexit__ = AsyncMock()
@@ -355,3 +391,64 @@ class TestRabbitMQConsumer:
 
         # Assert
         mock_handler.assert_called_once_with(None, [], [])
+
+    async def test_close_with_active_connection(self) -> None:
+        """Test closing consumer with an active connection."""
+        # Arrange
+        mock_handler = AsyncMock()
+        consumer = RabbitMQConsumer(report_handler=mock_handler)
+        mock_connection = AsyncMock()
+        mock_connection.is_closed = False
+        consumer._connection = mock_connection
+
+        # Act
+        await consumer.close()
+
+        # Assert
+        mock_connection.close.assert_called_once()
+
+    async def test_close_without_connection(self) -> None:
+        """Test closing consumer without a connection."""
+        # Arrange
+        mock_handler = AsyncMock()
+        consumer = RabbitMQConsumer(report_handler=mock_handler)
+
+        # Act & Assert — should not raise
+        await consumer.close()
+
+
+class TestRabbitMQConsumerNewRelic:
+    """Tests for consumer with New Relic integration."""
+
+    @pytest.mark.asyncio
+    @patch("src.infrastructure.observability.tracing._newrelic_agent")
+    async def test_process_message_with_newrelic_tracing(self, mock_nr_agent: MagicMock) -> None:
+        """Test that _process_message calls New Relic tracing when agent is available."""
+        # Arrange
+        mock_handler = AsyncMock()
+        consumer = RabbitMQConsumer(report_handler=mock_handler)
+
+        event_body = {
+            "event_type": "AnaliseConcluida",
+            "payload": {
+                "analise_id": "test-123",
+                "componentes": [{"id": "c1"}],
+                "riscos": [],
+            },
+        }
+
+        mock_message = AsyncMock(spec=aio_pika.abc.AbstractIncomingMessage)
+        mock_message.body = json.dumps(event_body).encode()
+        mock_message.headers = {"traceparent": "00-abc-def-01"}
+        mock_message.process = MagicMock(return_value=AsyncMock())
+        mock_message.process.return_value.__aenter__ = AsyncMock()
+        mock_message.process.return_value.__aexit__ = AsyncMock()
+
+        # Act
+        await consumer._process_message(mock_message)
+
+        # Assert
+        mock_nr_agent.accept_distributed_trace_headers.assert_called_once_with(
+            {"traceparent": "00-abc-def-01"}, transport_type="AMQP"
+        )
+        mock_handler.assert_called_once()

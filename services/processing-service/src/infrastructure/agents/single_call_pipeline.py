@@ -1,11 +1,10 @@
-import structlog
-
 from src.application.ports import LLMClient
 from src.application.sanity_checks import check_sanity
 from src.application.validation import validate_and_parse
 from src.domain.schemas import AnaliseResultSchema
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class SingleCallPipeline:

@@ -2,12 +2,12 @@ import base64
 import io
 
 import fitz
-import structlog
 from PIL import Image
 
 from src.domain.exceptions import ImageProcessingError
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 MAX_DIMENSION: int = 2048
 

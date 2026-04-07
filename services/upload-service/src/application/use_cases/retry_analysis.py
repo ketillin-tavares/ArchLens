@@ -1,14 +1,13 @@
 import uuid
 
-import structlog
-
 from src.application.dtos import AnaliseResponse
 from src.application.ports import EventPublisher
 from src.domain.events import DiagramaEnviado
 from src.domain.exceptions import AnaliseNaoEncontradaError
 from src.domain.repositories import AnaliseRepository, DiagramaRepository
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class RetryAnalysis:
@@ -73,6 +72,7 @@ class RetryAnalysis:
             diagrama_id=analise.diagrama_id,
             status=analise.status.value,
             erro_detalhe=analise.erro_detalhe,
+            relatorio_s3_key=analise.relatorio_s3_key,
             criado_em=analise.criado_em,
             atualizado_em=analise.atualizado_em,
         )

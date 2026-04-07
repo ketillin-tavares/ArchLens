@@ -1,11 +1,17 @@
 import json
+from types import ModuleType
 
 import aio_pika
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+try:
+    import newrelic.agent as _newrelic_agent
+except ImportError:
+    _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
+
+logger = get_logger()
 
 
 class RabbitMQPublisher:
@@ -39,10 +45,18 @@ class RabbitMQPublisher:
             raise RuntimeError("Publisher não conectado. Chame connect() primeiro.")
 
         message_body = json.dumps(payload).encode()
+
+        headers: dict = {}
+        if _newrelic_agent is not None:
+            nr_headers = []
+            _newrelic_agent.insert_distributed_trace_headers(nr_headers)
+            headers.update(dict(nr_headers))
+
         message = aio_pika.Message(
             body=message_body,
             content_type="application/json",
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            headers=headers or None,
         )
 
         await self._exchange.publish(message, routing_key=routing_key)

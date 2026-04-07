@@ -1,12 +1,11 @@
 import uuid
 
-import structlog
-
 from src.application.dtos import ComponenteResponse, ProcessamentoResponse, RiscoResponse
 from src.domain.exceptions import ProcessamentoNaoEncontradoError
 from src.domain.repositories import ProcessamentoRepository
+from src.infrastructure.observability.logging import get_logger
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 class GetProcessingResult:

@@ -3,7 +3,6 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -13,12 +12,17 @@ from src.environment import get_settings
 from src.infrastructure.database import async_engine, async_session_factory
 from src.infrastructure.messaging.consumer import RabbitMQConsumer
 from src.infrastructure.messaging.shared import rabbitmq_publisher
-from src.infrastructure.observability import MetricsRecorder, configure_logging
+from src.infrastructure.observability import MetricsRecorder, configure_logging, get_logger
+from src.infrastructure.storage.s3_client import S3StorageClient
 from src.interface.controllers import health_router, relatorio_router
 from src.interface.gateways.event_publisher_gateway import RabbitMQEventPublisherGateway
+from src.interface.gateways.file_storage_gateway import S3FileStorageGateway
+from src.interface.gateways.markdown_report_writer_gateway import ReportWriterGateway
 from src.interface.gateways.relatorio_repository_gateway import SQLAlchemyRelatorioRepository
 
-logger = structlog.get_logger()
+logger = get_logger()
+
+s3_client = S3StorageClient()
 
 
 async def _report_handler(analise_id: str, componentes: list[dict[str, Any]], riscos: list[dict[str, Any]]) -> None:
@@ -28,7 +32,15 @@ async def _report_handler(analise_id: str, componentes: list[dict[str, Any]], ri
     async with async_session_factory() as session:
         repo = SQLAlchemyRelatorioRepository(session)
         publisher_gateway = RabbitMQEventPublisherGateway(publisher=rabbitmq_publisher)
-        use_case = GenerateReport(relatorio_repository=repo, event_publisher=publisher_gateway)
+        file_storage_gateway = S3FileStorageGateway(s3_client)
+        report_writer_gateway = ReportWriterGateway()
+
+        use_case = GenerateReport(
+            relatorio_repository=repo,
+            event_publisher=publisher_gateway,
+            markdown_report_writer=report_writer_gateway,
+            file_storage=file_storage_gateway,
+        )
         await use_case.execute(analise_id, componentes, riscos)
         await session.commit()
 
@@ -72,7 +84,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(
     title="report-service",
     description="Serviço de geração de relatórios do ArchLens — consome eventos de análise concluída"
-    "e gera relatórios estruturados",
+    "e gera relatórios estruturados e narrativos em Markdown",
     version="0.1.0",
     lifespan=lifespan,
 )

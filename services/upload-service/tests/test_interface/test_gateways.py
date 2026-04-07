@@ -182,6 +182,85 @@ class TestSQLAlchemyAnaliseRepository:
         # Assert
         assert result is False
 
+    @pytest.mark.asyncio
+    async def test_atualizar_status_invalid_transition(self) -> None:
+        """Test updating status with invalid transition returns False."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+
+        mock_model = AnaliseModel(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.ANALISADO.value,
+            criado_em=datetime.now(UTC),
+            atualizado_em=datetime.now(UTC),
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_model
+
+        mock_session = AsyncMock(spec=AsyncSession)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        repo = SQLAlchemyAnaliseRepository(mock_session)
+
+        # Act — ANALISADO cannot go back to EM_PROCESSAMENTO
+        result = await repo.atualizar_status(analise_id, StatusAnalise.EM_PROCESSAMENTO)
+
+        # Assert
+        assert result is False
+        assert mock_session.execute.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_atualizar_status_with_relatorio_s3_key(self) -> None:
+        """Test updating to ANALISADO with relatorio_s3_key."""
+        # Arrange
+        analise_id = uuid.uuid4()
+        diagrama_id = uuid.uuid4()
+        relatorio_s3_key = "reports/test-uuid.md"
+
+        mock_model = AnaliseModel(
+            id=analise_id,
+            diagrama_id=diagrama_id,
+            status=StatusAnalise.EM_PROCESSAMENTO.value,
+            criado_em=datetime.now(UTC),
+            atualizado_em=datetime.now(UTC),
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_model
+
+        mock_session = AsyncMock(spec=AsyncSession)
+        mock_session.execute = AsyncMock(side_effect=[mock_result, MagicMock()])
+
+        repo = SQLAlchemyAnaliseRepository(mock_session)
+
+        # Act
+        result = await repo.atualizar_status(analise_id, StatusAnalise.ANALISADO, relatorio_s3_key=relatorio_s3_key)
+
+        # Assert
+        assert result is True
+        assert mock_session.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_resetar_para_retentativa(self) -> None:
+        """Test resetting analysis for retry."""
+        # Arrange
+        analise_id = uuid.uuid4()
+
+        mock_session = AsyncMock(spec=AsyncSession)
+        mock_session.execute = AsyncMock(return_value=MagicMock())
+
+        repo = SQLAlchemyAnaliseRepository(mock_session)
+
+        # Act
+        await repo.resetar_para_retentativa(analise_id)
+
+        # Assert
+        mock_session.execute.assert_called_once()
+        mock_session.flush.assert_called_once()
+
 
 class TestSQLAlchemyDiagramaRepository:
     """Tests for SQLAlchemy-based Diagrama repository."""
@@ -283,6 +362,23 @@ class TestS3FileStorageGateway:
         # Assert
         assert result == "diagramas/test-uuid.png"
         mock_client.upload_file.assert_called_once_with(file_bytes, storage_path, content_type)
+
+    @pytest.mark.asyncio
+    async def test_generate_presigned_url(self) -> None:
+        """Test generating a presigned URL."""
+        # Arrange
+        mock_client = AsyncMock()
+        expected_url = "https://s3.example.com/reports/test.md?signed=abc"
+        mock_client.generate_presigned_url.return_value = expected_url
+
+        gateway = S3FileStorageGateway(client=mock_client)
+
+        # Act
+        result = await gateway.generate_presigned_url("reports/test.md", 3600)
+
+        # Assert
+        assert result == expected_url
+        mock_client.generate_presigned_url.assert_called_once_with("reports/test.md", 3600)
 
 
 class TestRabbitMQEventPublisherGateway:

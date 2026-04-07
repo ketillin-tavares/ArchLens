@@ -1,14 +1,14 @@
 import time
 from types import ModuleType
 
-import structlog
+from src.infrastructure.observability.logging import get_logger
 
 try:
     import newrelic.agent as _newrelic_agent
 except ImportError:
     _newrelic_agent: ModuleType | None = None  # type: ignore[no-redef]
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 
 def _record_newrelic_metric(name: str, value: float) -> None:

@@ -14,6 +14,10 @@ class Analise(BaseModel):
     diagrama_id: uuid.UUID = Field(..., description="Referência ao diagrama analisado")
     status: StatusAnalise = Field(default=StatusAnalise.RECEBIDO, description="Status atual da análise")
     erro_detalhe: str | None = Field(default=None, description="Detalhes do erro, se houver")
+    relatorio_s3_key: str | None = Field(
+        default=None,
+        description="Chave S3 do relatório Markdown (.md). Preenchida ao receber RelatorioGerado.",
+    )
     criado_em: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Data de criação")
     atualizado_em: datetime = Field(default_factory=lambda: datetime.now(UTC), description="Última atualização")
 

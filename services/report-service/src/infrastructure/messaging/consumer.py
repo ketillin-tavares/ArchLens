@@ -3,11 +3,12 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import aio_pika
-import structlog
 
 from src.environment import get_settings
+from src.infrastructure.observability.logging import get_logger
+from src.infrastructure.observability.tracing import rabbitmq_consume_trace
 
-logger = structlog.get_logger()
+logger = get_logger()
 
 ROUTING_KEY_ANALISE_CONCLUIDA: str = "analise.processamento.concluida"
 
@@ -61,26 +62,27 @@ class RabbitMQConsumer:
         """
         async with message.process():
             try:
-                body = json.loads(message.body.decode())
-                event_type = body.get("event_type", "")
-                payload = body.get("payload", {})
-                analise_id = payload.get("analise_id")
-                componentes = payload.get("componentes", [])
-                riscos = payload.get("riscos", [])
+                with rabbitmq_consume_trace("_process_message", message.headers):
+                    body = json.loads(message.body.decode())
+                    event_type = body.get("event_type", "")
+                    payload = body.get("payload", {})
+                    analise_id = payload.get("analise_id")
+                    componentes = payload.get("componentes", [])
+                    riscos = payload.get("riscos", [])
 
-                logger.info(
-                    "analise_concluida_recebida",
-                    event_type=event_type,
-                    analise_id=analise_id,
-                    total_componentes=len(componentes),
-                    total_riscos=len(riscos),
-                )
+                    logger.info(
+                        "analise_concluida_recebida",
+                        event_type=event_type,
+                        analise_id=analise_id,
+                        total_componentes=len(componentes),
+                        total_riscos=len(riscos),
+                    )
 
-                if event_type != "AnaliseConcluida":
-                    logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
-                    return
+                    if event_type != "AnaliseConcluida":
+                        logger.debug("evento_ignorado", event_type=event_type, analise_id=analise_id)
+                        return
 
-                await self._handler(analise_id, componentes, riscos)
+                    await self._handler(analise_id, componentes, riscos)
 
             except Exception:
                 logger.exception("erro_processando_evento", message_body=message.body.decode()[:500])

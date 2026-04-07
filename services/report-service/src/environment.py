@@ -33,6 +33,24 @@ class RabbitMQSettings(BaseSettings):
         return f"amqp://{self.user}:{self.password}@{self.host}:{self.port}/"
 
 
+class S3Settings(BaseSettings):
+    """Configurações de conexão com o S3/LocalStack."""
+
+    endpoint_url: str = Field(default="http://localhost:4566", validation_alias="S3_ENDPOINT_URL")
+    access_key_id: str = Field(default="test", validation_alias="AWS_ACCESS_KEY_ID")
+    secret_access_key: str = Field(default="test", validation_alias="AWS_SECRET_ACCESS_KEY")
+    bucket_name: str = Field(default="archlens-diagramas", validation_alias="S3_BUCKET_NAME")
+    region_name: str = Field(default="us-east-1", validation_alias="AWS_REGION")
+
+
+class LLMSettings(BaseSettings):
+    """Configurações do LLM text-only via LiteLLM Proxy (para geração de Markdown)."""
+
+    base_url: str = Field(default="http://localhost:4000", validation_alias="LLM_BASE_URL")
+    api_key: str = Field(default="sk-litellm", validation_alias="LLM_API_KEY")
+    model_name: str = Field(default="archlens-analyzer", validation_alias="LLM_MODEL_NAME")
+
+
 class AppSettings(BaseSettings):
     """Configurações gerais da aplicação."""
 
@@ -47,6 +65,8 @@ class Settings(BaseSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
+    s3: S3Settings = Field(default_factory=S3Settings)
+    llm: LLMSettings = Field(default_factory=LLMSettings)
 
 
 def get_settings() -> Settings:

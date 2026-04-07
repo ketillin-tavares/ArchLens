@@ -25,6 +25,7 @@ class RelatorioModel(Base):
     titulo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resumo: Mapped[str | None] = mapped_column(Text, nullable=True)
     conteudo: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    s3_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

@@ -35,3 +35,12 @@ class ConflictResponse(BaseModel):
         default="Retentativa permitida apenas para análises com status 'erro'",
         description="Mensagem de erro",
     )
+
+
+class RelatorioIndisponivelResponse(BaseModel):
+    """Resposta de erro quando o relatório Markdown ainda não está disponível (HTTP 404)."""
+
+    detail: str = Field(
+        default="Relatório Markdown não disponível para esta análise",
+        description="Mensagem de erro",
+    )

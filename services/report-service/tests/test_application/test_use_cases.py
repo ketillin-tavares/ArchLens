@@ -16,7 +16,11 @@ class TestGenerateReport:
     """Tests for the GenerateReport use case."""
 
     async def test_generate_report_creates_new_relatorio(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test that GenerateReport creates and persists a new relatório."""
         # Arrange
@@ -37,10 +41,14 @@ class TestGenerateReport:
             resumo="Test Summary",
             conteudo={},
         )
+        mock_markdown_report_writer.generate.return_value = "# Markdown Content"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -52,7 +60,11 @@ class TestGenerateReport:
         mock_event_publisher.publish_event.assert_called_once()
 
     async def test_generate_report_skips_duplicate_relatorio(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test that GenerateReport skips if relatório already exists (idempotency)."""
         # Arrange
@@ -65,6 +77,8 @@ class TestGenerateReport:
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -76,7 +90,11 @@ class TestGenerateReport:
         mock_event_publisher.publish_event.assert_not_called()
 
     async def test_generate_report_calculates_statistics_correctly(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test that GenerateReport calculates statistics correctly."""
         # Arrange
@@ -102,10 +120,14 @@ class TestGenerateReport:
             return rel
 
         mock_relatorio_repository.salvar.side_effect = capture_relatorio
+        mock_markdown_report_writer.generate.return_value = "# Markdown"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -122,7 +144,11 @@ class TestGenerateReport:
         assert stats["riscos_por_severidade"]["baixa"] == 0
 
     async def test_generate_report_with_zero_riscos(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test GenerateReport with no riscos."""
         # Arrange
@@ -139,10 +165,14 @@ class TestGenerateReport:
             return rel
 
         mock_relatorio_repository.salvar.side_effect = capture_relatorio
+        mock_markdown_report_writer.generate.return_value = "# Markdown"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -155,7 +185,11 @@ class TestGenerateReport:
         assert all(v == 0 for v in stats["riscos_por_severidade"].values())
 
     async def test_generate_report_with_mixed_severidades(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test GenerateReport with all severity levels."""
         # Arrange
@@ -177,10 +211,14 @@ class TestGenerateReport:
             return rel
 
         mock_relatorio_repository.salvar.side_effect = capture_relatorio
+        mock_markdown_report_writer.generate.return_value = "# Markdown"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -195,7 +233,11 @@ class TestGenerateReport:
         assert stats["riscos_por_severidade"]["baixa"] == 1
 
     async def test_generate_report_titulo_contains_date(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test that generated title contains current date."""
         # Arrange
@@ -212,10 +254,14 @@ class TestGenerateReport:
             return rel
 
         mock_relatorio_repository.salvar.side_effect = capture_relatorio
+        mock_markdown_report_writer.generate.return_value = "# Markdown"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -227,7 +273,11 @@ class TestGenerateReport:
         assert "202" in saved_relatorio.titulo  # Year 2026
 
     async def test_generate_report_publishes_event(
-        self, mock_relatorio_repository: RelatorioRepository, mock_event_publisher: Any
+        self,
+        mock_relatorio_repository: RelatorioRepository,
+        mock_event_publisher: Any,
+        mock_markdown_report_writer: Any,
+        mock_file_storage: Any,
     ) -> None:
         """Test that GenerateReport publishes RelatorioGerado event."""
         # Arrange
@@ -244,10 +294,14 @@ class TestGenerateReport:
             resumo="Summary",
             conteudo={},
         )
+        mock_markdown_report_writer.generate.return_value = "# Markdown"
+        mock_file_storage.upload_text.return_value = f"relatorios/{analise_id}.md"
 
         use_case = GenerateReport(
             relatorio_repository=mock_relatorio_repository,
             event_publisher=mock_event_publisher,
+            markdown_report_writer=mock_markdown_report_writer,
+            file_storage=mock_file_storage,
         )
 
         # Act
@@ -282,6 +336,8 @@ class TestGetReport:
         assert response.titulo == sample_relatorio.titulo
         assert response.resumo == sample_relatorio.resumo
         assert response.conteudo == sample_relatorio.conteudo
+        assert response.s3_key == sample_relatorio.s3_key
+        assert response.criado_em == sample_relatorio.criado_em
 
     async def test_get_report_raises_when_not_found(self, analise_id: uuid.UUID) -> None:
         """Test that GetReport raises RelatorioNaoEncontradoError when not found."""

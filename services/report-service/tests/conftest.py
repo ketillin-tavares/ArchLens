@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from src.application.ports import EventPublisher
+from src.application.ports import EventPublisher, FileStorage, MarkdownReportWriter
 from src.domain.entities import Relatorio
 from src.domain.repositories import RelatorioRepository
 from src.main import app
@@ -39,6 +39,20 @@ def mock_event_publisher() -> EventPublisher:
     """Fixture com mock da interface EventPublisher."""
     publisher = AsyncMock(spec=EventPublisher)
     return publisher
+
+
+@pytest.fixture
+def mock_markdown_report_writer() -> MarkdownReportWriter:
+    """Fixture com mock da interface MarkdownReportWriter."""
+    writer = AsyncMock(spec=MarkdownReportWriter)
+    return writer
+
+
+@pytest.fixture
+def mock_file_storage() -> FileStorage:
+    """Fixture com mock da interface FileStorage."""
+    storage = AsyncMock(spec=FileStorage)
+    return storage
 
 
 @pytest.fixture
@@ -73,6 +87,7 @@ def sample_relatorio(analise_id: uuid.UUID, relatorio_id: uuid.UUID) -> Relatori
                 },
             },
         },
+        s3_key=f"relatorios/{analise_id}.md",
         criado_em=datetime.now(UTC),
     )
 

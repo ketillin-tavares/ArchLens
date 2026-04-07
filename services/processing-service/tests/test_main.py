@@ -38,7 +38,7 @@ class TestAppSetup:
         routes = [route.path for route in app.routes]
 
         # Assert
-        assert "/api/v1/processamentos/{analise_id}" in routes
+        assert "/v1/processamentos/{analise_id}" in routes
         assert "/health" in routes
 
     def test_app_exception_handlers_registered(self) -> None:
