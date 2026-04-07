@@ -291,8 +291,11 @@ class TestStdlibLogSink:
         sink._stdlib_logger = MagicMock()
 
         mock_message = MagicMock()
+        mock_level = MagicMock()
+        mock_level.no = 20
+        mock_level.name = "INFO"
         mock_message.record = {
-            "level": MagicMock(no=20, name="INFO"),
+            "level": mock_level,
             "file": MagicMock(path="/test.py"),
             "line": 42,
             "message": "test_message",
@@ -314,8 +317,11 @@ class TestStdlibLogSink:
         sink._stdlib_logger = MagicMock()
 
         mock_message = MagicMock()
+        mock_level = MagicMock()
+        mock_level.no = 40
+        mock_level.name = "ERROR"
         mock_message.record = {
-            "level": MagicMock(no=40, name="ERROR"),
+            "level": mock_level,
             "file": MagicMock(path="/test.py"),
             "line": 10,
             "message": "falha_critica",
@@ -337,8 +343,11 @@ class TestStdlibLogSink:
         sink._stdlib_logger = MagicMock()
 
         mock_message = MagicMock()
+        mock_level = MagicMock()
+        mock_level.no = 20
+        mock_level.name = "INFO"
         mock_message.record = {
-            "level": MagicMock(no=20, name="INFO"),
+            "level": mock_level,
             "file": MagicMock(path="/test.py"),
             "line": 10,
             "message": "tudo_ok",
