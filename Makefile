@@ -57,6 +57,9 @@ vault-secrets:
 	@echo "=== RabbitMQ ===" && vault kv get secret/archlens/rabbitmq
 	@echo "=== New Relic ===" && vault kv get secret/archlens/newrelic
 
+jwt-token:
+	@python gateways/kong/generate-jwt.py $${KONG_JWT_SECRET:-archlens-jwt-secret-dev} 1
+
 kong-status:
 	curl -s http://localhost:8001/status | python -m json.tool
 

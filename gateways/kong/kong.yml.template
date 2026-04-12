@@ -3,8 +3,10 @@ _transform: true
 
 consumers:
   - username: archlens-client
-    keyauth_credentials:
-      - key: ${KONG_API_KEY}
+    jwt_secrets:
+      - algorithm: HS256
+        key: archlens-issuer
+        secret: ${KONG_JWT_SECRET}
 
 services:
   # ── Upload Service ──
@@ -19,11 +21,12 @@ services:
           - GET
           - POST
         plugins:
-          - name: key-auth
+          - name: jwt
             config:
-              key_names:
-                - X-API-Key
-              hide_credentials: true
+              claims_to_verify:
+                - exp
+              key_claim_name: iss
+              secret_is_base64: false
 
       - name: upload-health
         paths:
@@ -43,11 +46,12 @@ services:
         methods:
           - GET
         plugins:
-          - name: key-auth
+          - name: jwt
             config:
-              key_names:
-                - X-API-Key
-              hide_credentials: true
+              claims_to_verify:
+                - exp
+              key_claim_name: iss
+              secret_is_base64: false
 
       - name: report-health
         paths:
@@ -56,7 +60,7 @@ services:
         methods:
           - GET
 
-  # ── Processing Service (debug) ──
+  # ── Processing Service (debug/interno) ──
   - name: processing-service
     url: http://processing-service:8001
     routes:
@@ -67,11 +71,12 @@ services:
         methods:
           - GET
         plugins:
-          - name: key-auth
+          - name: jwt
             config:
-              key_names:
-                - X-API-Key
-              hide_credentials: true
+              claims_to_verify:
+                - exp
+              key_claim_name: iss
+              secret_is_base64: false
 
       - name: processing-health
         paths:
@@ -80,7 +85,9 @@ services:
         methods:
           - GET
 
+# ── Plugins Globais ──
 plugins:
+  # Rate limiting: 30 requests/min por IP
   - name: rate-limiting
     config:
       minute: 30
@@ -88,6 +95,7 @@ plugins:
       fault_tolerant: true
       hide_client_headers: false
 
+  # CORS: permitir todas as origens (dev)
   - name: cors
     config:
       origins:
@@ -99,9 +107,9 @@ plugins:
       headers:
         - Content-Type
         - Authorization
-        - X-API-Key
       max_age: 3600
 
+  # Limitar tamanho do request a 10MB
   - name: request-size-limiting
     config:
       allowed_payload_size: 10
