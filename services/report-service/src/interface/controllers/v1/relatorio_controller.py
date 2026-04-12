@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.application.dtos import RelatorioResponse
 from src.application.use_cases import GetReport
 from src.infrastructure.database import get_session
+from src.infrastructure.observability.metrics import MetricsRecorder
 from src.interface.gateways.relatorio_repository_gateway import SQLAlchemyRelatorioRepository
 from src.interface.presenters.error_presenter import NotFoundResponse
 
@@ -26,4 +27,6 @@ async def get_report(
         relatorio_repository=SQLAlchemyRelatorioRepository(session),
     )
 
-    return await use_case.execute(analise_id)
+    resultado = await use_case.execute(analise_id)
+    MetricsRecorder.record_relatorio_consultado()
+    return resultado

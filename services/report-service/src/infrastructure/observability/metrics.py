@@ -12,9 +12,17 @@ logger = get_logger()
 
 
 def _record_newrelic_metric(name: str, value: float) -> None:
-    """Registra uma métrica customizada no New Relic, se disponível."""
-    if _newrelic_agent is not None:
-        _newrelic_agent.record_custom_metric(name, value)
+    """Registra uma métrica customizada no New Relic via objeto application.
+
+    Usa application.record_custom_metric() em vez de record_custom_metric() global
+    para evitar corrupção do thread-local em contextos asyncio com múltiplas
+    mensagens RabbitMQ concorrentes (prefetch_count > 1).
+    """
+    if _newrelic_agent is None:
+        return
+    app = _newrelic_agent.application()
+    if app is not None:
+        app.record_custom_metric(name, value)
 
 
 class MetricsRecorder:

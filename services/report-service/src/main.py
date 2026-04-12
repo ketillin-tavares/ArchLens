@@ -41,12 +41,16 @@ async def _report_handler(analise_id: str, componentes: list[dict[str, Any]], ri
             markdown_report_writer=report_writer_gateway,
             file_storage=file_storage_gateway,
         )
-        await use_case.execute(analise_id, componentes, riscos)
+        gerado = await use_case.execute(analise_id, componentes, riscos)
         await session.commit()
 
     duracao = MetricsRecorder.elapsed(start)
-    MetricsRecorder.record_relatorio_gerado()
-    MetricsRecorder.record_tempo_geracao(analise_id, duracao)
+
+    if gerado:
+        MetricsRecorder.record_relatorio_gerado()
+        MetricsRecorder.record_tempo_geracao(analise_id, duracao)
+    else:
+        MetricsRecorder.record_relatorio_duplicado()
 
 
 @asynccontextmanager

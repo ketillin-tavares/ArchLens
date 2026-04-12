@@ -141,19 +141,21 @@ class TestRecordNewRelicMetric:
     def test_record_newrelic_metric_when_agent_available(self, mock_agent: MagicMock) -> None:
         """Test that _record_newrelic_metric calls agent when available."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         _record_newrelic_metric("Custom/Test/Metric", 42.0)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.0)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.0)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_newrelic_metric_with_different_values(self, mock_agent: MagicMock) -> None:
         """Test recording metrics with different metric names and values."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         _record_newrelic_metric("Custom/Metric1", 10.5)
@@ -161,8 +163,8 @@ class TestRecordNewRelicMetric:
         _record_newrelic_metric("Custom/Metric3", 0.0)
 
         # Assert
-        assert mock_agent.record_custom_metric.call_count == 3
-        calls = mock_agent.record_custom_metric.call_args_list
+        assert mock_app.record_custom_metric.call_count == 3
+        calls = mock_app.record_custom_metric.call_args_list
         assert calls[0][0] == ("Custom/Metric1", 10.5)
         assert calls[1][0] == ("Custom/Metric2", 99.9)
         assert calls[2][0] == ("Custom/Metric3", 0.0)

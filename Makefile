@@ -14,6 +14,9 @@ up:
 down:
 	docker compose down
 
+rebuild-services:
+	docker compose up -d --build upload-service processing-service report-service
+
 down-clean:
 	docker compose down -v
 

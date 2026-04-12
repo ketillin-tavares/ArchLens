@@ -1,0 +1,18 @@
+integrations:
+  - name: nri-rabbitmq
+    env:
+      HOSTNAME: rabbitmq
+      PORT: 15672
+      USERNAME: archlens
+      PASSWORD: archlens_dev
+      USE_SSL: "false"
+      QUEUES: >-
+        processing-service.pipeline,
+        report-service.reports,
+        upload-service.status-updates,
+        processing-service.pipeline.dlq,
+        report-service.reports.dlq,
+        upload-service.status-updates.dlq
+      EXCHANGES: analise.events
+      VHOSTS: /
+    interval: 15

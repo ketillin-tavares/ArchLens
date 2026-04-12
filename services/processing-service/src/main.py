@@ -53,11 +53,19 @@ async def _diagram_handler(analise_id: str, diagrama_storage_path: str, content_
             analysis_pipeline=pipeline_gateway,
         )
 
-        await use_case.execute(analise_id, diagrama_storage_path, content_type)
+        result = await use_case.execute(analise_id, diagrama_storage_path, content_type)
         await session.commit()
 
     duracao = MetricsRecorder.elapsed(start)
     MetricsRecorder.record_latency(duracao)
+
+    if result.status == "sucesso":
+        MetricsRecorder.record_component_count(result.total_componentes)
+        MetricsRecorder.record_risk_count(result.total_riscos)
+        MetricsRecorder.record_avg_confidence(result.avg_confianca)
+        MetricsRecorder.record_analise_sucesso(analise_id, duracao, result.total_componentes, result.total_riscos)
+    elif result.status == "falha":
+        MetricsRecorder.record_analise_falha(analise_id, result.erro or "", result.tipo_erro or "Unknown")
 
 
 @asynccontextmanager

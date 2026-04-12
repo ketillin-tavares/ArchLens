@@ -159,86 +159,93 @@ class TestMetricsRecorder:
     def test_record_component_count(self, mock_agent) -> None:
         """Test record_component_count."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_component_count(5)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/AI/ComponentCount", 5)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/AI/ComponentCount", 5)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_risk_count(self, mock_agent) -> None:
         """Test record_risk_count."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_risk_count(3)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/AI/RiskCount", 3)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/AI/RiskCount", 3)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_avg_confidence(self, mock_agent) -> None:
         """Test record_avg_confidence."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_avg_confidence(0.85)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/AI/AvgConfidence", 0.85)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/AI/AvgConfidence", 0.85)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_latency(self, mock_agent) -> None:
         """Test record_latency."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_latency(2.5)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/AI/LatencySeconds", 2.5)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/AI/LatencySeconds", 2.5)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_validation_retries(self, mock_agent) -> None:
         """Test record_validation_retries."""
         # Arrange
-        mock_agent.record_custom_metric = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_validation_retries(2)
 
         # Assert
-        mock_agent.record_custom_metric.assert_called_once_with("Custom/AI/ValidationRetries", 2)
+        mock_app.record_custom_metric.assert_called_once_with("Custom/AI/ValidationRetries", 2)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_analise_iniciada(self, mock_agent) -> None:
         """Test record_analise_iniciada."""
         # Arrange
-        mock_agent.record_custom_event = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_analise_iniciada("test-id")
 
         # Assert
-        mock_agent.record_custom_event.assert_called_once_with("AnaliseIniciada", {"analise_id": "test-id"})
+        mock_app.record_custom_event.assert_called_once_with("AnaliseIniciada", {"analise_id": "test-id"})
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_analise_sucesso(self, mock_agent) -> None:
         """Test record_analise_sucesso."""
         # Arrange
-        mock_agent.record_custom_event = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_analise_sucesso("test-id", 1.5, 5, 2)
 
         # Assert
-        mock_agent.record_custom_event.assert_called_once()
-        call_args = mock_agent.record_custom_event.call_args
+        mock_app.record_custom_event.assert_called_once()
+        call_args = mock_app.record_custom_event.call_args
         assert call_args[0][0] == "AnaliseSucesso"
         assert call_args[0][1]["analise_id"] == "test-id"
 
@@ -246,14 +253,15 @@ class TestMetricsRecorder:
     def test_record_analise_falha(self, mock_agent) -> None:
         """Test record_analise_falha."""
         # Arrange
-        mock_agent.record_custom_event = MagicMock()
+        mock_app = MagicMock()
+        mock_agent.application.return_value = mock_app
 
         # Act
         MetricsRecorder.record_analise_falha("test-id", "Error message", "LLMApiError")
 
         # Assert
-        mock_agent.record_custom_event.assert_called_once()
-        call_args = mock_agent.record_custom_event.call_args
+        mock_app.record_custom_event.assert_called_once()
+        call_args = mock_app.record_custom_event.call_args
         assert call_args[0][0] == "AnaliseFalha"
         assert call_args[0][1]["analise_id"] == "test-id"
 
