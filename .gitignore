@@ -214,6 +214,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# New Relic state (contains account/policy IDs)
+docs/newrelic/.alerts_state.json
+
 # Claude
 .claude/
 CLAUDE.md

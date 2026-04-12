@@ -17,7 +17,7 @@
 ### Via NerdGraph API (automatizado)
 ```graphql
 mutation {
-  alertsPolicyCreate(accountId: 7557083, policy: {
+  alertsPolicyCreate(accountId: <ACCOUNT_ID>, policy: {
     incidentPreference: PER_CONDITION_AND_TARGET
     name: "ArchLens - Platform Alerts"
   }) {

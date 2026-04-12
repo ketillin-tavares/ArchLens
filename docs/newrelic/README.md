@@ -13,14 +13,22 @@
 
 ## Como importar o Dashboard
 
+> **Antes de importar:** substitua todos os `"accountIds": [0]` no `dashboard.json` pelo seu Account ID do New Relic.
+> Você pode encontrar o Account ID em **New Relic → User menu → API keys** ou em **Administration → Access management**.
+>
+> Exemplo com `sed`:
+> ```bash
+> sed -i 's/"accountIds": \[0\]/"accountIds": [SEU_ACCOUNT_ID]/g' dashboard.json
+> ```
+
 ### Opção A — NerdGraph API (recomendado)
 
 1. Acesse [one.newrelic.com/nerdgraph-playground](https://one.newrelic.com/nerdgraph-playground)
-2. Cole a mutation abaixo substituindo `<DASHBOARD_JSON>` pelo conteúdo de `dashboard.json`:
+2. Cole a mutation abaixo substituindo `<ACCOUNT_ID>` pelo seu Account ID:
 
 ```graphql
 mutation CreateDashboard($dashboard: DashboardInput!) {
-  dashboardCreate(accountId: 7557083, dashboard: $dashboard) {
+  dashboardCreate(accountId: <ACCOUNT_ID>, dashboard: $dashboard) {
     entityResult {
       guid
       name

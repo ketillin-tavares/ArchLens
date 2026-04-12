@@ -13,7 +13,7 @@
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.markdown" },
           "rawConfiguration": {
-            "text": "## ArchLens — Visão Geral da Plataforma\nMonitora os três serviços do pipeline: **Upload → Processing (AI) → Report**. Conta ID: `7557083`."
+            "text": "## ArchLens — Visão Geral da Plataforma\nMonitora os três serviços do pipeline: **Upload → Processing (AI) → Report**."
           }
         },
         {
@@ -24,7 +24,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Análises' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Status/recebido' SINCE 1 hour ago"
               }
             ]
@@ -38,7 +38,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error Rate %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
               ],
@@ -56,7 +56,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' SINCE 1 hour ago"
               }
             ],
@@ -74,7 +74,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Relatórios' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
               }
             ]
@@ -88,7 +88,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
               }
             ]
@@ -102,7 +102,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -116,7 +116,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration) AS 'avg (s)' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -130,7 +130,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'error %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -144,7 +144,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
               }
             ],
@@ -162,7 +162,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' SINCE 1 hour ago"
               }
             ]
@@ -176,7 +176,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' SINCE 1 hour ago"
               }
             ]
@@ -190,7 +190,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
               }
             ],
@@ -208,7 +208,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 50) AS 'P50 (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -237,7 +237,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
               }
             ]
@@ -251,7 +251,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error Rate %' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
               }
             ],
@@ -269,7 +269,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration) AS 'Avg (s)' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
               }
             ],
@@ -287,7 +287,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT apdex(duration, 0.5) AS 'Apdex' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
               }
             ],
@@ -305,7 +305,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'upload-service' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -319,7 +319,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentile(duration, 50, 95, 99) FROM Transaction WHERE appName = 'upload-service' FACET name TIMESERIES AUTO SINCE 3 hours ago LIMIT 10"
               }
             ]
@@ -333,7 +333,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
               }
             ]
@@ -347,7 +347,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -361,7 +361,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg Bytes', max(newrelic.timeslice.value) AS 'Max Bytes' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Upload/TamanhoBytes' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -375,7 +375,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -389,7 +389,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
               }
             ],
@@ -407,7 +407,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration) AS 'Avg (s)', max(duration) AS 'Max (s)', count(*) AS 'Count' FROM Transaction WHERE appName = 'upload-service' FACET name SINCE 1 hour ago LIMIT 10"
               }
             ]
@@ -421,7 +421,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'upload-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -444,7 +444,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Retries' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' SINCE 1 hour ago"
               }
             ]
@@ -458,7 +458,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Downloads' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' SINCE 1 hour ago"
               }
             ]
@@ -472,7 +472,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' SINCE 1 hour ago"
               }
             ],
@@ -490,7 +490,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' SINCE 1 hour ago"
               }
             ],
@@ -508,7 +508,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -522,7 +522,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -536,7 +536,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'upload-service' AND (transactionName LIKE '%retry%' OR transactionName LIKE '%download%') FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -565,7 +565,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' SINCE 1 hour ago"
               }
             ],
@@ -583,7 +583,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança (0-1)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
               }
             ],
@@ -601,7 +601,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' SINCE 1 hour ago"
               }
             ],
@@ -619,7 +619,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Sucesso' FROM AnaliseSucesso SINCE 1 hour ago"
               }
             ]
@@ -633,7 +633,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -647,7 +647,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -661,11 +661,11 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Sucesso' FROM AnaliseSucesso TIMESERIES AUTO SINCE 6 hours ago"
               },
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Falha' FROM AnaliseFalha TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -679,11 +679,11 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)', max(newrelic.timeslice.value) AS 'Componentes (max)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' TIMESERIES AUTO SINCE 6 hours ago"
               },
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -697,7 +697,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -711,7 +711,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duracao_segundos) AS 'Avg (s)', percentile(duracao_segundos, 95) AS 'P95 (s)', max(duracao_segundos) AS 'Max (s)' FROM AnaliseSucesso TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -725,7 +725,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT analise_id, duracao_segundos, total_componentes, total_riscos, timestamp FROM AnaliseSucesso ORDER BY timestamp DESC LIMIT 20 SINCE 6 hours ago"
               }
             ]
@@ -739,7 +739,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT analise_id, tipo_erro, erro, timestamp FROM AnaliseFalha ORDER BY timestamp DESC LIMIT 20 SINCE 6 hours ago"
               }
             ]
@@ -753,7 +753,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) FROM AnaliseFalha FACET tipo_erro SINCE 6 hours ago"
               }
             ]
@@ -767,7 +767,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'processing-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -796,7 +796,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
               }
             ]
@@ -810,7 +810,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' SINCE 1 hour ago"
               }
             ],
@@ -828,7 +828,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' SINCE 1 hour ago"
               }
             ]
@@ -842,7 +842,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' SINCE 1 hour ago"
               }
             ]
@@ -856,7 +856,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -870,7 +870,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -884,7 +884,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'report-service' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -898,7 +898,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration) AS 'Avg (s)', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'report-service' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -912,11 +912,11 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' TIMESERIES AUTO SINCE 6 hours ago"
               },
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
@@ -930,7 +930,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'report-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -959,7 +959,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(cpuPercent) AS 'CPU %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -973,7 +973,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(memoryUsageBytes) / average(memoryLimitBytes) * 100 AS 'Mem %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -987,7 +987,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(networkRxBytes) AS 'Rx Bytes', average(networkTxBytes) AS 'Tx Bytes' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1001,7 +1001,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(cpuPercent) AS 'CPU %', average(memoryUsedPercent) AS 'Mem %' FROM SystemSample WHERE displayName = 'archlens-local' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1024,7 +1024,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'processing-service.pipeline' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1038,7 +1038,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'report-service.reports' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1052,7 +1052,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'upload-service.status-updates' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1066,7 +1066,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(queue.messagesReadyCount) AS 'Mensagens DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' FACET queue.name TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1080,7 +1080,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT sum(queue.messagesReadyCount) AS 'Total DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' SINCE 5 minutes ago"
               }
             ],
@@ -1098,7 +1098,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT latest(queue.messagesReadyCount) AS 'Prontas', latest(queue.messagesUnacknowledgedCount) AS 'Não-ack', latest(queue.totalGet) AS 'Total Consumidas' FROM RabbitmqQueueSample FACET queue.name SINCE 5 minutes ago LIMIT 20"
               }
             ]
@@ -1112,7 +1112,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(databaseDuration) AS 'DB Avg (s)' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') AND databaseDuration IS NOT NULL FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1126,7 +1126,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration) AS 'Avg (s)', count(*) AS 'Count', latest(databaseStatement) AS 'Statement' FROM DatastoreSegment WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET databaseStatement SINCE 1 hour ago LIMIT 10"
               }
             ]
@@ -1155,7 +1155,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Erros APM' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
             ],
@@ -1173,7 +1173,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
             ],
@@ -1191,7 +1191,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Log Lines' FROM Log WHERE entity.name IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
             ]
@@ -1205,7 +1205,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Error Logs' FROM Log WHERE level = 'ERROR' AND entity.name IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
             ],
@@ -1223,7 +1223,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) FROM Log WHERE entity.name IN ('upload-service', 'processing-service', 'report-service') FACET entity.name, level TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1237,7 +1237,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Erros' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1251,7 +1251,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT timestamp, entity.name, message, trace.id, span.id FROM Log WHERE level = 'ERROR' AND entity.name IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 50 SINCE 1 hour ago"
               }
             ]
@@ -1265,7 +1265,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET errorClass, appName SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -1279,7 +1279,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET errorClass SINCE 1 hour ago LIMIT 20"
               }
             ]
@@ -1293,7 +1293,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT timestamp, trace.id, appName, name, duration, error.message FROM Span WHERE error.message IS NOT NULL AND appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 30 SINCE 1 hour ago"
               }
             ]
@@ -1322,7 +1322,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration.ms) AS 'Avg (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1336,7 +1336,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT percentile(duration.ms, 95) AS 'P95 (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1350,7 +1350,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT count(*) FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET category SINCE 1 hour ago"
               }
             ]
@@ -1364,7 +1364,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT trace.id, appName, name, duration.ms, error.message FROM Span WHERE error.message IS NOT NULL AND appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 20 SINCE 3 hours ago"
               }
             ]
@@ -1378,7 +1378,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration.ms) AS 'DB Avg (ms)' FROM Span WHERE category = 'datastore' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1392,7 +1392,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT average(duration.ms) AS 'AMQP Avg (ms)' FROM Span WHERE category = 'message' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
@@ -1406,7 +1406,7 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [7557083],
+                "accountIds": [0],
                 "query": "SELECT trace.id, appName, name, duration.ms, category, timestamp FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY duration.ms DESC LIMIT 30 SINCE 1 hour ago"
               }
             ]
