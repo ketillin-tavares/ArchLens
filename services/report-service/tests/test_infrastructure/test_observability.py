@@ -49,45 +49,59 @@ class TestMetricsRecorder:
         assert elapsed >= 0
         assert elapsed < 0.01  # Should be very small
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_relatorio_gerado(self, mock_record: MagicMock) -> None:
+    def test_record_relatorio_gerado(self) -> None:
         """Test recording a report generation metric."""
-        # Act
-        MetricsRecorder.record_relatorio_gerado()
+        # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
-        # Assert
-        mock_record.assert_called_once_with("Custom/Relatorio/Gerados", 1)
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_relatorio_gerado()
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_tempo_geracao(self, mock_record: MagicMock) -> None:
+            # Assert
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Relatorio/Gerados", 1)
+
+    def test_record_tempo_geracao(self) -> None:
         """Test recording report generation time metric."""
         # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
         analise_id = "test-id"
         duration = 2.5
 
-        # Act
-        MetricsRecorder.record_tempo_geracao(analise_id, duration)
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_tempo_geracao(analise_id, duration)
 
-        # Assert
-        mock_record.assert_called_once_with("Custom/Relatorio/TempoGeracao", duration)
+            # Assert
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Relatorio/TempoGeracao", duration)
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_relatorio_duplicado(self, mock_record: MagicMock) -> None:
+    def test_record_relatorio_duplicado(self) -> None:
         """Test recording duplicate report metric."""
-        # Act
-        MetricsRecorder.record_relatorio_duplicado()
+        # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
-        # Assert
-        mock_record.assert_called_once_with("Custom/Relatorio/Duplicados", 1)
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_relatorio_duplicado()
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_relatorio_consultado(self, mock_record: MagicMock) -> None:
+            # Assert
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Relatorio/Duplicados", 1)
+
+    def test_record_relatorio_consultado(self) -> None:
         """Test recording report query metric."""
-        # Act
-        MetricsRecorder.record_relatorio_consultado()
+        # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
-        # Assert
-        mock_record.assert_called_once_with("Custom/Relatorio/Consultas", 1)
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_relatorio_consultado()
+
+            # Assert
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Relatorio/Consultas", 1)
 
     def test_timer_accuracy(self) -> None:
         """Test that timer measurements are accurate."""
@@ -102,29 +116,37 @@ class TestMetricsRecorder:
         assert 0.08 <= elapsed <= 0.15  # Allow tolerance
         assert elapsed > 0.09  # Should be at least ~100ms
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_tempo_geracao_with_zero_duration(self, mock_record: MagicMock) -> None:
+    def test_record_tempo_geracao_with_zero_duration(self) -> None:
         """Test recording with zero duration."""
-        # Act
-        MetricsRecorder.record_tempo_geracao("test-id", 0.0)
+        # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
-        # Assert
-        mock_record.assert_called_once_with("Custom/Relatorio/TempoGeracao", 0.0)
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_tempo_geracao("test-id", 0.0)
 
-    @patch("src.infrastructure.observability.metrics._record_newrelic_metric")
-    def test_record_multiple_metrics(self, mock_record: MagicMock) -> None:
+            # Assert
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Relatorio/TempoGeracao", 0.0)
+
+    def test_record_multiple_metrics(self) -> None:
         """Test recording multiple metrics in sequence."""
-        # Act
-        MetricsRecorder.record_relatorio_gerado()
-        MetricsRecorder.record_tempo_geracao("id1", 1.5)
-        MetricsRecorder.record_relatorio_consultado()
+        # Arrange
+        mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
-        # Assert
-        assert mock_record.call_count == 3
-        calls = mock_record.call_args_list
-        assert calls[0][0][0] == "Custom/Relatorio/Gerados"
-        assert calls[1][0][0] == "Custom/Relatorio/TempoGeracao"
-        assert calls[2][0][0] == "Custom/Relatorio/Consultas"
+        with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
+            # Act
+            MetricsRecorder.record_relatorio_gerado()
+            MetricsRecorder.record_tempo_geracao("id1", 1.5)
+            MetricsRecorder.record_relatorio_consultado()
+
+            # Assert
+            assert mock_agent.record_custom_metric.call_count == 3
+            calls = mock_agent.record_custom_metric.call_args_list
+            assert calls[0][0][0] == "Custom/Relatorio/Gerados"
+            assert calls[1][0][0] == "Custom/Relatorio/TempoGeracao"
+            assert calls[2][0][0] == "Custom/Relatorio/Consultas"
 
 
 class TestRecordNewRelicMetric:
@@ -141,21 +163,19 @@ class TestRecordNewRelicMetric:
     def test_record_newrelic_metric_when_agent_available(self, mock_agent: MagicMock) -> None:
         """Test that _record_newrelic_metric calls agent when available."""
         # Arrange
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         # Act
         _record_newrelic_metric("Custom/Test/Metric", 42.0)
 
         # Assert
-        mock_app.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.0)
+        mock_agent.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.0)
 
     @patch("src.infrastructure.observability.metrics._newrelic_agent")
     def test_record_newrelic_metric_with_different_values(self, mock_agent: MagicMock) -> None:
         """Test recording metrics with different metric names and values."""
         # Arrange
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         # Act
         _record_newrelic_metric("Custom/Metric1", 10.5)
@@ -163,8 +183,8 @@ class TestRecordNewRelicMetric:
         _record_newrelic_metric("Custom/Metric3", 0.0)
 
         # Assert
-        assert mock_app.record_custom_metric.call_count == 3
-        calls = mock_app.record_custom_metric.call_args_list
+        assert mock_agent.record_custom_metric.call_count == 3
+        calls = mock_agent.record_custom_metric.call_args_list
         assert calls[0][0] == ("Custom/Metric1", 10.5)
         assert calls[1][0] == ("Custom/Metric2", 99.9)
         assert calls[2][0] == ("Custom/Metric3", 0.0)

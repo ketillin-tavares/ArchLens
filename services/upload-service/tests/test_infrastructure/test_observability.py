@@ -213,15 +213,14 @@ class TestRecordNewrelicMetric:
         """Test recording metric when New Relic agent is available."""
         # Arrange
         mock_agent = MagicMock()
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
             _record_newrelic_metric("Custom/Test/Metric", 42.5)
 
             # Assert
-            mock_app.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.5)
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Test/Metric", 42.5)
 
     def test_record_newrelic_metric_with_agent_unavailable(self) -> None:
         """Test recording metric when New Relic agent is not available."""
@@ -241,36 +240,33 @@ class TestMetricsRecorder:
         """Test recording analysis status metric."""
         # Arrange
         mock_agent = MagicMock()
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
             MetricsRecorder.record_analise_por_status("recebido")
 
             # Assert
-            mock_app.record_custom_metric.assert_called_once_with("Custom/Analise/Status/recebido", 1)
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Analise/Status/recebido", 1)
 
     def test_record_upload_tamanho(self) -> None:
         """Test recording upload size metric."""
         # Arrange
         mock_agent = MagicMock()
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
             MetricsRecorder.record_upload_tamanho(5242880)  # 5MB
 
             # Assert
-            mock_app.record_custom_metric.assert_called_once_with("Custom/Upload/TamanhoBytes", 5242880)
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Upload/TamanhoBytes", 5242880)
 
     def test_record_tempo_processamento(self) -> None:
         """Test recording processing time metric."""
         # Arrange
         mock_agent = MagicMock()
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
         analise_id = "test-uuid-123"
         duracao = 12.5
 
@@ -279,21 +275,20 @@ class TestMetricsRecorder:
             MetricsRecorder.record_tempo_processamento(analise_id, duracao)
 
             # Assert
-            mock_app.record_custom_metric.assert_called_once_with("Custom/Analise/TempoProcessamento", duracao)
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Analise/TempoProcessamento", duracao)
 
     def test_record_falha(self) -> None:
         """Test recording failure metric."""
         # Arrange
         mock_agent = MagicMock()
-        mock_app = MagicMock()
-        mock_agent.application.return_value = mock_app
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
             MetricsRecorder.record_falha()
 
             # Assert
-            mock_app.record_custom_metric.assert_called_once_with("Custom/Analise/Falhas", 1)
+            mock_agent.record_custom_metric.assert_called_once_with("Custom/Analise/Falhas", 1)
 
     def test_start_timer(self) -> None:
         """Test starting a timer."""

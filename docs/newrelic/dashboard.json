@@ -25,7 +25,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Análises' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/Status/recebido' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Análises' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Status/recebido' SINCE 1 hour ago"
               }
             ]
           }
@@ -41,7 +41,7 @@
                 "accountIds": [7557083],
                 "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error Rate %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
               }
-            ],
+              ],
             "thresholds": [
               { "alertSeverity": "WARNING", "value": 2 },
               { "alertSeverity": "CRITICAL", "value": 5 }
@@ -57,7 +57,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/TempoProcessamento' SINCE 1 hour ago"
+                "query": "SELECT percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -75,7 +75,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Relatórios' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Relatórios' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
               }
             ]
           }
@@ -89,7 +89,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
               }
             ]
           }
@@ -145,7 +145,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -163,7 +163,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/ComponentCount' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' SINCE 1 hour ago"
               }
             ]
           }
@@ -177,7 +177,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/RiskCount' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' SINCE 1 hour ago"
               }
             ]
           }
@@ -191,7 +191,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -209,7 +209,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 50) AS 'P50 (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 50) AS 'P50 (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -334,7 +334,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
               }
             ]
           }
@@ -348,7 +348,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -362,7 +362,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg Bytes', max(newrelic.timeslice.value) AS 'Max Bytes' FROM Metric WHERE metricTimesliceName = 'Custom/Upload/TamanhoBytes' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg Bytes', max(newrelic.timeslice.value) AS 'Max Bytes' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Upload/TamanhoBytes' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -376,7 +376,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -390,7 +390,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -566,7 +566,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/LatencySeconds' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -584,7 +584,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança (0-1)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança (0-1)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -602,7 +602,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE metricTimesliceName = 'Custom/AI/ValidationRetries' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -634,7 +634,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/LatencySeconds' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -648,7 +648,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE metricTimesliceName = 'Custom/AI/AvgConfidence' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -680,11 +680,11 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)', max(newrelic.timeslice.value) AS 'Componentes (max)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/ComponentCount' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)', max(newrelic.timeslice.value) AS 'Componentes (max)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' TIMESERIES AUTO SINCE 6 hours ago"
               },
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE metricTimesliceName = 'Custom/AI/RiskCount' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -698,7 +698,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE metricTimesliceName = 'Custom/AI/ValidationRetries' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -797,7 +797,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
               }
             ]
           }
@@ -811,7 +811,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/TempoGeracao' SINCE 1 hour ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' SINCE 1 hour ago"
               }
             ],
             "thresholds": [
@@ -829,7 +829,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Duplicados' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' SINCE 1 hour ago"
               }
             ]
           }
@@ -843,7 +843,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Consultas' SINCE 1 hour ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' SINCE 1 hour ago"
               }
             ]
           }
@@ -857,7 +857,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Gerados' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -871,7 +871,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/TempoGeracao' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
@@ -913,11 +913,11 @@
             "nrqlQueries": [
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Duplicados' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' TIMESERIES AUTO SINCE 6 hours ago"
               },
               {
                 "accountIds": [7557083],
-                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE metricTimesliceName = 'Custom/Relatorio/Consultas' TIMESERIES AUTO SINCE 6 hours ago"
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' TIMESERIES AUTO SINCE 6 hours ago"
               }
             ]
           }
