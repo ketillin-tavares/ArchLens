@@ -12,9 +12,15 @@ logger = get_logger()
 
 
 def _record_newrelic_metric(name: str, value: float) -> None:
-    """Registra uma métrica customizada no New Relic, se disponível."""
-    if _newrelic_agent is not None:
-        _newrelic_agent.record_custom_metric(name, value)
+    """Registra uma métrica customizada no New Relic na transação atual.
+
+    Usa record_custom_metric() no contexto da transação ativa (HTTP ou
+    BackgroundTask do RabbitMQ) para gerar timeslice metrics consultáveis
+    via metricTimesliceName no NRQL.
+    """
+    if _newrelic_agent is None:
+        return
+    _newrelic_agent.record_custom_metric(name, value)
 
 
 class MetricsRecorder:

@@ -326,6 +326,10 @@ services:
     volumes:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/newrelic/integrations:/etc/newrelic-infra/integrations.d:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - archlens
 
@@ -334,7 +338,7 @@ volumes:
   localstack_data:
   rabbitmq_data:
   vault_data:
-  ollama_data:
+  litellm_data:
 
 networks:
   archlens:

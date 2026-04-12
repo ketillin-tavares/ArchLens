@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from src.domain.repositories import AnaliseRepository
 from src.domain.value_objects import StatusAnalise
@@ -19,7 +20,7 @@ class HandleStatusUpdate:
         novo_status: str,
         erro_detalhe: str | None = None,
         relatorio_s3_key: str | None = None,
-    ) -> None:
+    ) -> datetime | None:
         """
         Atualiza o status de uma análise baseado em evento recebido.
 
@@ -28,19 +29,24 @@ class HandleStatusUpdate:
             novo_status: Novo status a aplicar.
             erro_detalhe: Detalhes do erro (para status 'erro').
             relatorio_s3_key: Chave S3 do relatório Markdown (para status 'analisado').
+
+        Returns:
+            criado_em da análise quando o status foi atualizado para 'analisado',
+            permitindo o cálculo do tempo E2E. None nos demais casos.
         """
         try:
             uid = uuid.UUID(analise_id)
             status = StatusAnalise(novo_status)
         except (ValueError, KeyError):
             logger.error("evento_invalido", analise_id=analise_id, novo_status=novo_status)
-            return
+            return None
 
         analise = await self._analise_repo.buscar_por_id(uid)
         if analise is None:
             logger.warning("analise_nao_encontrada_para_evento", analise_id=analise_id)
-            return
+            return None
 
+        criado_em = analise.criado_em
         status_anterior = analise.status.value
         atualizado = await self._analise_repo.atualizar_status(uid, status, erro_detalhe, relatorio_s3_key)
 
@@ -53,6 +59,8 @@ class HandleStatusUpdate:
                 status_anterior=status_anterior,
                 status_novo=novo_status,
             )
+            if novo_status == StatusAnalise.ANALISADO.value:
+                return criado_em
         else:
             logger.debug(
                 "status_nao_atualizado_idempotencia",
@@ -60,3 +68,5 @@ class HandleStatusUpdate:
                 status_atual=status_anterior,
                 status_tentado=novo_status,
             )
+
+        return None

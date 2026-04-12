@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -35,12 +36,16 @@ async def _status_update_handler(
     async with async_session_factory() as session:
         repo = SQLAlchemyAnaliseRepository(session)
         use_case = HandleStatusUpdate(analise_repository=repo)
-        await use_case.execute(analise_id, novo_status, erro_detalhe, relatorio_s3_key)
+        criado_em = await use_case.execute(analise_id, novo_status, erro_detalhe, relatorio_s3_key)
         await session.commit()
 
     MetricsRecorder.record_analise_por_status(novo_status)
     if novo_status == "erro":
         MetricsRecorder.record_falha()
+
+    if criado_em is not None:
+        duracao_e2e = (datetime.now(UTC) - criado_em).total_seconds()
+        MetricsRecorder.record_tempo_processamento(analise_id, duracao_e2e)
 
 
 @asynccontextmanager

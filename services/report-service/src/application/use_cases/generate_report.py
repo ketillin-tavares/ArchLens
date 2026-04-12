@@ -28,7 +28,7 @@ class GenerateReport:
         self._markdown_writer = markdown_report_writer
         self._file_storage = file_storage
 
-    async def execute(self, analise_id: str, componentes: list[dict[str, Any]], riscos: list[dict[str, Any]]) -> None:
+    async def execute(self, analise_id: str, componentes: list[dict[str, Any]], riscos: list[dict[str, Any]]) -> bool:
         """
         Gera um relatório a partir dos dados de análise concluída.
 
@@ -41,12 +41,15 @@ class GenerateReport:
             analise_id: ID da análise (string UUID).
             componentes: Lista de componentes identificados.
             riscos: Lista de riscos identificados.
+
+        Returns:
+            True se o relatório foi gerado. False se era duplicado e foi ignorado.
         """
         analise_uuid = uuid.UUID(analise_id)
 
         if await self._relatorio_repo.existe_por_analise_id(analise_uuid):
             logger.info("relatorio_duplicado_ignorado", analise_id=analise_id)
-            return
+            return False
 
         estatisticas = self._calcular_estatisticas(componentes, riscos)
         titulo = self._gerar_titulo()
@@ -104,6 +107,8 @@ class GenerateReport:
             routing_key="analise.relatorio.gerado",
             payload=evento.to_message(),
         )
+
+        return True
 
     async def _gerar_markdown(
         self,

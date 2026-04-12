@@ -1,0 +1,1418 @@
+{
+  "name": "ArchLens - Platform Dashboard",
+  "description": "Dashboard completo do ArchLens: métricas de negócio, AI pipeline, infraestrutura, mensageria, logs e erros.",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Visão Geral",
+      "description": "Golden Signals: throughput, latência, taxa de erro e saturation por serviço.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## ArchLens — Visão Geral da Plataforma\nMonitora os três serviços do pipeline: **Upload → Processing (AI) → Report**."
+          }
+        },
+        {
+          "title": "Análises Recebidas (1h)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Análises' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Status/recebido' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Taxa de Erro Global (%)",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error Rate %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
+              }
+              ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 2 },
+              { "alertSeverity": "CRITICAL", "value": 5 }
+            ]
+          }
+        },
+        {
+          "title": "P95 Latência E2E — Upload (s)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 120 },
+              { "alertSeverity": "CRITICAL", "value": 300 }
+            ]
+          }
+        },
+        {
+          "title": "Relatórios Gerados (1h)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Relatórios' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Análises por Status (1h)",
+          "layout": { "column": 1, "row": 5, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Throughput por Serviço (req/min)",
+          "layout": { "column": 5, "row": 5, "width": 8, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Latência Média APM por Serviço (s)",
+          "layout": { "column": 1, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration) AS 'avg (s)' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Taxa de Erro por Serviço (%)",
+          "layout": { "column": 7, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'error %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "AI — Confiança Média dos Componentes",
+          "layout": { "column": 1, "row": 11, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 0.75 },
+              { "alertSeverity": "CRITICAL", "value": 0.6 }
+            ]
+          }
+        },
+        {
+          "title": "AI — Média de Componentes / Análise",
+          "layout": { "column": 4, "row": 11, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "AI — Média de Riscos / Análise",
+          "layout": { "column": 7, "row": 11, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Falhas no Pipeline (1h)",
+          "layout": { "column": 10, "row": 11, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 },
+              { "alertSeverity": "CRITICAL", "value": 5 }
+            ]
+          }
+        },
+        {
+          "title": "Tempo de Processamento E2E (s) — distribuição",
+          "layout": { "column": 1, "row": 14, "width": 12, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 50) AS 'P50 (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload Service",
+      "description": "APM, métricas de upload, status de análises e erros do upload-service.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Upload Service — APM & Métricas de Negócio\nRotas: `POST /v1/analises` · `GET /v1/analises/{id}` · `POST /v1/analises/{id}/retry` · `GET /v1/analises/{id}/relatorio/download`"
+          }
+        },
+        {
+          "title": "Throughput (req/min)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Taxa de Erro (%)",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error Rate %' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 2 },
+              { "alertSeverity": "CRITICAL", "value": 5 }
+            ]
+          }
+        },
+        {
+          "title": "Latência Média (s)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration) AS 'Avg (s)' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 2 },
+              { "alertSeverity": "CRITICAL", "value": 10 }
+            ]
+          }
+        },
+        {
+          "title": "Apdex (t=0.5s)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT apdex(duration, 0.5) AS 'Apdex' FROM Transaction WHERE appName = 'upload-service' SINCE 30 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 0.85 },
+              { "alertSeverity": "CRITICAL", "value": 0.7 }
+            ]
+          }
+        },
+        {
+          "title": "Throughput ao Longo do Tempo (req/min)",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'upload-service' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Latência por Endpoint (P50 / P95 / P99)",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentile(duration, 50, 95, 99) FROM Transaction WHERE appName = 'upload-service' FACET name TIMESERIES AUTO SINCE 3 hours ago LIMIT 10"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Status das Análises — Contagem (1h)",
+          "layout": { "column": 1, "row": 8, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Análises por Status — Série Temporal",
+          "layout": { "column": 5, "row": 8, "width": 8, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName IN ('Custom/Analise/Status/recebido', 'Custom/Analise/Status/em_processamento', 'Custom/Analise/Status/analisado', 'Custom/Analise/Status/erro') FACET metricTimesliceName TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tamanho dos Uploads (bytes — avg / max)",
+          "layout": { "column": 1, "row": 11, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg Bytes', max(newrelic.timeslice.value) AS 'Max Bytes' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Upload/TamanhoBytes' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tempo Processamento E2E (s — avg / P95)",
+          "layout": { "column": 7, "row": 11, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/TempoProcessamento' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Falhas Acumuladas",
+          "layout": { "column": 1, "row": 14, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Falhas' FROM Metric WHERE appName = 'upload-service' AND metricTimesliceName = 'Custom/Analise/Falhas' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 },
+              { "alertSeverity": "CRITICAL", "value": 5 }
+            ]
+          }
+        },
+        {
+          "title": "Transações Mais Lentas",
+          "layout": { "column": 4, "row": 14, "width": 9, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration) AS 'Avg (s)', max(duration) AS 'Max (s)', count(*) AS 'Count' FROM Transaction WHERE appName = 'upload-service' FACET name SINCE 1 hour ago LIMIT 10"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Top Erros — upload-service",
+          "layout": { "column": 1, "row": 17, "width": 12, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'upload-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 21, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "### Endpoints: Retry & Download Relatório"
+          }
+        },
+        {
+          "title": "Retries Executados (1h)",
+          "layout": { "column": 1, "row": 22, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Retries' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Downloads de Relatório (1h)",
+          "layout": { "column": 4, "row": 22, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Downloads' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Retry — Taxa de Erro (%)",
+          "layout": { "column": 7, "row": 22, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 },
+              { "alertSeverity": "CRITICAL", "value": 15 }
+            ]
+          }
+        },
+        {
+          "title": "Download — Taxa de Erro (%)",
+          "layout": { "column": 10, "row": 22, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 },
+              { "alertSeverity": "CRITICAL", "value": 15 }
+            ]
+          }
+        },
+        {
+          "title": "Retry — Throughput e Latência (P95)",
+          "layout": { "column": 1, "row": 25, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%retry%' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Download Relatório — Throughput e Latência (P95)",
+          "layout": { "column": 7, "row": 25, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'upload-service' AND name LIKE '%download%' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Erros nos Endpoints Retry & Download",
+          "layout": { "column": 1, "row": 28, "width": 12, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'upload-service' AND (transactionName LIKE '%retry%' OR transactionName LIKE '%download%') FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Processing Service (AI)",
+      "description": "Pipeline de IA: latência, confiança, componentes, riscos, retentativas e eventos customizados.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Processing Service — Pipeline de IA (LiteLLM / PydanticAI)\nEvento: `DiagramaEnviado` → análise AI → `AnaliseConcluida` / `AnaliseFalhou`"
+          }
+        },
+        {
+          "title": "Latência Média do Pipeline (s)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 60 },
+              { "alertSeverity": "CRITICAL", "value": 120 }
+            ]
+          }
+        },
+        {
+          "title": "Confiança Média dos Componentes",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança (0-1)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 0.75 },
+              { "alertSeverity": "CRITICAL", "value": 0.6 }
+            ]
+          }
+        },
+        {
+          "title": "Retentativas de Validação (1h)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 10 },
+              { "alertSeverity": "CRITICAL", "value": 30 }
+            ]
+          }
+        },
+        {
+          "title": "Análises com Sucesso vs Falha (1h)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Sucesso' FROM AnaliseSucesso SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Latência do Pipeline AI (s) — avg / P95 / Max",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/LatencySeconds' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Confiança Média ao Longo do Tempo",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Confiança Média' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/AvgConfidence' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Sucesso vs Falha — Pipeline (série temporal)",
+          "layout": { "column": 1, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Sucesso' FROM AnaliseSucesso TIMESERIES AUTO SINCE 6 hours ago"
+              },
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Falha' FROM AnaliseFalha TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Componentes e Riscos por Análise",
+          "layout": { "column": 7, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Componentes (avg)', max(newrelic.timeslice.value) AS 'Componentes (max)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ComponentCount' TIMESERIES AUTO SINCE 6 hours ago"
+              },
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Riscos (avg)' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/RiskCount' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Retentativas de Validação — Série Temporal",
+          "layout": { "column": 1, "row": 11, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Retentativas' FROM Metric WHERE appName = 'processing-service' AND metricTimesliceName = 'Custom/AI/ValidationRetries' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Duração das Análises Bem-Sucedidas (evento AnaliseSucesso)",
+          "layout": { "column": 7, "row": 11, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duracao_segundos) AS 'Avg (s)', percentile(duracao_segundos, 95) AS 'P95 (s)', max(duracao_segundos) AS 'Max (s)' FROM AnaliseSucesso TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Últimas Análises — Sucesso",
+          "layout": { "column": 1, "row": 14, "width": 6, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT analise_id, duracao_segundos, total_componentes, total_riscos, timestamp FROM AnaliseSucesso ORDER BY timestamp DESC LIMIT 20 SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Últimas Análises — Falha",
+          "layout": { "column": 7, "row": 14, "width": 6, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT analise_id, tipo_erro, erro, timestamp FROM AnaliseFalha ORDER BY timestamp DESC LIMIT 20 SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Distribuição dos Tipos de Erro (AI)",
+          "layout": { "column": 1, "row": 18, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM AnaliseFalha FACET tipo_erro SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Top Erros APM — processing-service",
+          "layout": { "column": 5, "row": 18, "width": 8, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'processing-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Report Service",
+      "description": "Geração e consulta de relatórios de arquitetura.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Report Service — Geração de Relatórios\nRota: `GET /v1/relatorios/{analise_id}` · Geração via LiteLLM · Armazenamento no S3"
+          }
+        },
+        {
+          "title": "Relatórios Gerados (1h)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tempo Médio de Geração (s)",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 30 },
+              { "alertSeverity": "CRITICAL", "value": 60 }
+            ]
+          }
+        },
+        {
+          "title": "Duplicados Ignorados (1h)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Consultas a Relatórios (1h)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Relatórios Gerados — Série Temporal",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Gerados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Gerados' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tempo de Geração (s) — avg / P95 / Max",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(newrelic.timeslice.value) AS 'Avg (s)', percentile(newrelic.timeslice.value, 95) AS 'P95 (s)', max(newrelic.timeslice.value) AS 'Max (s)' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/TempoGeracao' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "APM — Throughput (req/min)",
+          "layout": { "column": 1, "row": 8, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Transaction WHERE appName = 'report-service' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "APM — Latência (s)",
+          "layout": { "column": 5, "row": 8, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration) AS 'Avg (s)', percentile(duration, 95) AS 'P95 (s)' FROM Transaction WHERE appName = 'report-service' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Duplicados vs Consultas",
+          "layout": { "column": 9, "row": 8, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Duplicados' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Duplicados' TIMESERIES AUTO SINCE 6 hours ago"
+              },
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(newrelic.timeslice.value) AS 'Consultas' FROM Metric WHERE appName = 'report-service' AND metricTimesliceName = 'Custom/Relatorio/Consultas' TIMESERIES AUTO SINCE 6 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Top Erros APM — report-service",
+          "layout": { "column": 1, "row": 11, "width": 12, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem', latest(errorClass) AS 'Classe' FROM TransactionError WHERE appName = 'report-service' FACET errorClass, transactionName SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Infraestrutura & Mensageria",
+      "description": "Containers (CPU/memória/rede), filas RabbitMQ (DLQs incluídos) e PostgreSQL.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Infraestrutura & Mensageria\nContainers Docker · RabbitMQ (exchange `analise.events`) · PostgreSQL · LocalStack S3"
+          }
+        },
+        {
+          "title": "CPU % por Container",
+          "layout": { "column": 1, "row": 2, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(cpuPercent) AS 'CPU %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Memória % por Container",
+          "layout": { "column": 7, "row": 2, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(memoryUsageBytes) / average(memoryLimitBytes) * 100 AS 'Mem %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Rede — Bytes Recebidos / Enviados (containers)",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(networkRxBytes) AS 'Rx Bytes', average(networkTxBytes) AS 'Tx Bytes' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "CPU / Memória — Infraestrutura do Host",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(cpuPercent) AS 'CPU %', average(memoryUsedPercent) AS 'Mem %' FROM SystemSample WHERE displayName = 'archlens-local' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 8, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "### RabbitMQ — Profundidade das Filas"
+          }
+        },
+        {
+          "title": "processing-service.pipeline — Mensagens Prontas",
+          "layout": { "column": 1, "row": 9, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'processing-service.pipeline' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "report-service.reports — Mensagens Prontas",
+          "layout": { "column": 5, "row": 9, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'report-service.reports' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "upload-service.status-updates — Mensagens Prontas",
+          "layout": { "column": 9, "row": 9, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'upload-service.status-updates' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Dead Letter Queues (DLQ) — Mensagens Acumuladas",
+          "layout": { "column": 1, "row": 12, "width": 8, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(queue.messagesReadyCount) AS 'Mensagens DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' FACET queue.name TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "DLQ — Alerta de Acúmulo (billboard)",
+          "layout": { "column": 9, "row": 12, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(queue.messagesReadyCount) AS 'Total DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' SINCE 5 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 },
+              { "alertSeverity": "CRITICAL", "value": 10 }
+            ]
+          }
+        },
+        {
+          "title": "RabbitMQ — Todas as Filas (snapshot)",
+          "layout": { "column": 1, "row": 15, "width": 12, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT latest(queue.messagesReadyCount) AS 'Prontas', latest(queue.messagesUnacknowledgedCount) AS 'Não-ack', latest(queue.totalGet) AS 'Total Consumidas' FROM RabbitmqQueueSample FACET queue.name SINCE 5 minutes ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "PostgreSQL — Tempo de Query por App",
+          "layout": { "column": 1, "row": 18, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(databaseDuration) AS 'DB Avg (s)' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') AND databaseDuration IS NOT NULL FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "PostgreSQL — Queries Mais Lentas",
+          "layout": { "column": 7, "row": 18, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration) AS 'Avg (s)', count(*) AS 'Count', latest(databaseStatement) AS 'Statement' FROM DatastoreSegment WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET databaseStatement SINCE 1 hour ago LIMIT 10"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logs & Erros",
+      "description": "Log volume por serviço, erros em tempo real, rastreamento de exceções e distributed tracing.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Logs & Erros — Todos os Serviços\nLogs via **loguru → stdlib logging → NR agent**. Campos extras do `bind()` disponíveis como atributos. Linking metadata: `trace.id`, `span.id`."
+          }
+        },
+        {
+          "title": "Total de Erros APM (1h)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Erros APM' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 },
+              { "alertSeverity": "CRITICAL", "value": 20 }
+            ]
+          }
+        },
+        {
+          "title": "Taxa de Erro APM Global (%)",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentage(count(*), WHERE error IS true) AS 'Error %' FROM Transaction WHERE appName IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 2 },
+              { "alertSeverity": "CRITICAL", "value": 5 }
+            ]
+          }
+        },
+        {
+          "title": "Total de Log Lines (1h)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Log Lines' FROM Log WHERE entity.name IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Log Lines de Erro (1h)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Error Logs' FROM Log WHERE level = 'ERROR' AND entity.name IN ('upload-service', 'processing-service', 'report-service') SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 },
+              { "alertSeverity": "CRITICAL", "value": 20 }
+            ]
+          }
+        },
+        {
+          "title": "Volume de Logs por Serviço e Nível",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM Log WHERE entity.name IN ('upload-service', 'processing-service', 'report-service') FACET entity.name, level TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Erros APM por Serviço — Série Temporal",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Erros' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Logs de Erro — Últimos 50",
+          "layout": { "column": 1, "row": 8, "width": 12, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT timestamp, entity.name, message, trace.id, span.id FROM Log WHERE level = 'ERROR' AND entity.name IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 50 SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Top Mensagens de Erro — Agrupadas",
+          "layout": { "column": 1, "row": 12, "width": 6, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) AS 'Count', latest(errorMessage) AS 'Mensagem' FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET errorClass, appName SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Erros por Classe de Exceção — Distribuição",
+          "layout": { "column": 7, "row": 12, "width": 6, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM TransactionError WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET errorClass SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Distributed Tracing — Spans com Erro",
+          "layout": { "column": 1, "row": 16, "width": 12, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT timestamp, trace.id, appName, name, duration, error.message FROM Span WHERE error.message IS NOT NULL AND appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 30 SINCE 1 hour ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Distributed Tracing",
+      "description": "Rastreamento ponta a ponta do pipeline: Upload → RabbitMQ → Processing → Report.",
+      "widgets": [
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Distributed Tracing — Pipeline E2E\nTracing propagado via headers AMQP (`insert_distributed_trace_headers` / `accept_distributed_trace_headers`). Serviços: upload-service → processing-service → report-service."
+          }
+        },
+        {
+          "title": "Duração Média dos Spans por Serviço (ms)",
+          "layout": { "column": 1, "row": 2, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration.ms) AS 'Avg (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "P95 Duração dos Spans por Serviço (ms)",
+          "layout": { "column": 7, "row": 2, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT percentile(duration.ms, 95) AS 'P95 (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Spans por Tipo de Operação",
+          "layout": { "column": 1, "row": 5, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET category SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Traces com Erro — Últimas 3h",
+          "layout": { "column": 5, "row": 5, "width": 8, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT trace.id, appName, name, duration.ms, error.message FROM Span WHERE error.message IS NOT NULL AND appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 20 SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Operações de Banco de Dados — Tempo por Serviço",
+          "layout": { "column": 1, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration.ms) AS 'DB Avg (ms)' FROM Span WHERE category = 'datastore' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Operações AMQP — Tempo de Publicação/Consumo",
+          "layout": { "column": 7, "row": 8, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(duration.ms) AS 'AMQP Avg (ms)' FROM Span WHERE category = 'message' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Slowest Spans — Últimos 30 (all services)",
+          "layout": { "column": 1, "row": 11, "width": 12, "height": 4 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT trace.id, appName, name, duration.ms, category, timestamp FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY duration.ms DESC LIMIT 30 SINCE 1 hour ago"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

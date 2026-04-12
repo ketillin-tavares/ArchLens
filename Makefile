@@ -14,6 +14,9 @@ up:
 down:
 	docker compose down
 
+rebuild-services:
+	docker compose up -d --build upload-service processing-service report-service
+
 down-clean:
 	docker compose down -v
 
@@ -68,3 +71,12 @@ litellm-generate-key:
 
 litellm-ui:
 	@echo "LiteLLM UI: http://localhost:4000/ui"
+
+venv-us:
+	cd services/upload-service && source .venv/Scripts/activate
+
+venv-ps:
+	cd services/processing-service && source .venv/Scripts/activate
+
+venv-rs:
+	cd services/report-service && source .venv/Scripts/activate

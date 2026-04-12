@@ -8,6 +8,7 @@ from src.application.use_cases import DownloadRelatorio, GetAnalysisStatus, Retr
 from src.domain.value_objects import ArquivoDiagrama
 from src.infrastructure.database import get_session
 from src.infrastructure.messaging.shared import rabbitmq_publisher
+from src.infrastructure.observability.metrics import MetricsRecorder
 from src.interface.gateways.analise_repository_gateway import SQLAlchemyAnaliseRepository
 from src.interface.gateways.diagrama_repository_gateway import SQLAlchemyDiagramaRepository
 from src.interface.gateways.event_publisher_gateway import RabbitMQEventPublisherGateway
@@ -54,6 +55,8 @@ async def submit_diagram(
         conteudo=conteudo,
     )
 
+    MetricsRecorder.record_upload_tamanho(arquivo.tamanho_bytes)
+
     use_case = SubmitDiagram(
         diagrama_repository=SQLAlchemyDiagramaRepository(session),
         analise_repository=SQLAlchemyAnaliseRepository(session),
@@ -61,7 +64,9 @@ async def submit_diagram(
         event_publisher=_get_publisher_gateway(),
     )
 
-    return await use_case.execute(arquivo)
+    resultado = await use_case.execute(arquivo)
+    MetricsRecorder.record_analise_por_status("recebido")
+    return resultado
 
 
 @router.get(

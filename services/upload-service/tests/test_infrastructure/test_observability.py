@@ -213,6 +213,7 @@ class TestRecordNewrelicMetric:
         """Test recording metric when New Relic agent is available."""
         # Arrange
         mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
@@ -239,6 +240,7 @@ class TestMetricsRecorder:
         """Test recording analysis status metric."""
         # Arrange
         mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
@@ -251,6 +253,7 @@ class TestMetricsRecorder:
         """Test recording upload size metric."""
         # Arrange
         mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act
@@ -263,6 +266,7 @@ class TestMetricsRecorder:
         """Test recording processing time metric."""
         # Arrange
         mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
         analise_id = "test-uuid-123"
         duracao = 12.5
 
@@ -277,6 +281,7 @@ class TestMetricsRecorder:
         """Test recording failure metric."""
         # Arrange
         mock_agent = MagicMock()
+        mock_agent.record_custom_metric = MagicMock()
 
         with patch("src.infrastructure.observability.metrics._newrelic_agent", mock_agent):
             # Act

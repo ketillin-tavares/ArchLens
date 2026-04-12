@@ -1,5 +1,6 @@
 import uuid
 
+from src.application.dtos.process_diagram_result import ProcessDiagramResult
 from src.application.ports import AnalysisPipeline, EventPublisher, FileStorage, ImageProcessor
 from src.domain.entities import Componente, Processamento, Risco, StatusProcessamento
 from src.domain.events import AnaliseConcluida, AnaliseFalhou, ProcessamentoIniciado
@@ -38,7 +39,7 @@ class ProcessDiagram:
         self._image_processor = image_processor
         self._analysis_pipeline = analysis_pipeline
 
-    async def execute(self, analise_id: str, diagrama_storage_path: str, content_type: str) -> None:
+    async def execute(self, analise_id: str, diagrama_storage_path: str, content_type: str) -> ProcessDiagramResult:
         """
         Executa o pipeline completo de análise de diagrama.
 
@@ -46,13 +47,16 @@ class ProcessDiagram:
             analise_id: ID da análise (string UUID).
             diagrama_storage_path: Caminho do diagrama no S3.
             content_type: MIME type do arquivo.
+
+        Returns:
+            ProcessDiagramResult com status, contagens e métricas do processamento.
         """
         analise_uuid = uuid.UUID(analise_id)
 
         existing = await self._repo.buscar_por_analise_id(analise_uuid)
         if existing and existing.status == StatusProcessamento.CONCLUIDO:
             logger.info("processamento_duplicado_ignorado", analise_id=analise_id)
-            return
+            return ProcessDiagramResult(status="duplicado")
 
         processamento = Processamento(analise_id=analise_uuid)
         processamento.iniciar()
@@ -78,10 +82,13 @@ class ProcessDiagram:
             processamento.concluir()
             await self._repo.atualizar_processamento(processamento)
 
+            componentes: list[Componente] = resultado["componentes"]
+            riscos: list[Risco] = resultado["riscos"]
+
             evento_concluida = AnaliseConcluida(
                 analise_id=analise_uuid,
-                componentes=[c.model_dump(mode="json") for c in resultado["componentes"]],
-                riscos=[r.model_dump(mode="json") for r in resultado["riscos"]],
+                componentes=[c.model_dump(mode="json") for c in componentes],
+                riscos=[r.model_dump(mode="json") for r in riscos],
             )
             await self._event_publisher.publish_event(
                 event_type=evento_concluida.event_type,
@@ -89,22 +96,37 @@ class ProcessDiagram:
                 payload=evento_concluida.to_message(),
             )
 
+            total_componentes = len(componentes)
+            total_riscos = len(riscos)
+            avg_confianca = sum(c.confianca for c in componentes) / total_componentes if componentes else 0.0
+
             logger.info(
                 "analise_concluida",
                 analise_id=analise_id,
-                total_componentes=len(resultado["componentes"]),
-                total_riscos=len(resultado["riscos"]),
+                total_componentes=total_componentes,
+                total_riscos=total_riscos,
+            )
+
+            return ProcessDiagramResult(
+                status="sucesso",
+                total_componentes=total_componentes,
+                total_riscos=total_riscos,
+                avg_confianca=avg_confianca,
             )
 
         except NON_RETRIABLE_EXCEPTIONS as exc:
             await self._handle_failure(processamento, str(exc), tentativa=1)
+            return ProcessDiagramResult(status="falha", erro=str(exc), tipo_erro=type(exc).__name__)
         except RETRIABLE_EXCEPTIONS as exc:
             await self._handle_failure(processamento, str(exc), tentativa=processamento.tentativas)
+            return ProcessDiagramResult(status="falha", erro=str(exc), tipo_erro=type(exc).__name__)
         except SchemaValidationError as exc:
             await self._handle_failure(processamento, str(exc), tentativa=processamento.tentativas)
+            return ProcessDiagramResult(status="falha", erro=str(exc), tipo_erro=type(exc).__name__)
         except Exception as exc:
             logger.exception("erro_inesperado_pipeline", analise_id=analise_id)
             await self._handle_failure(processamento, f"Erro interno inesperado: {exc}", tentativa=1)
+            return ProcessDiagramResult(status="falha", erro=str(exc), tipo_erro=type(exc).__name__)
 
     async def _run_pipeline(self, processamento: Processamento, diagrama_storage_path: str, content_type: str) -> dict:
         """
