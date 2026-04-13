@@ -76,7 +76,6 @@ plugins:
       headers:
         - Content-Type
         - Authorization
-        - X-API-Key
       max_age: 3600
 
   # Limitar tamanho do request a 10MB

@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
 
-# Se KONG_API_KEY está definida, usar o template com autenticação
-if [ -n "${KONG_API_KEY:-}" ]; then
-    echo "KONG_API_KEY found — enabling key-auth"
-    sed "s/\${KONG_API_KEY}/${KONG_API_KEY}/g" /etc/kong/kong.yml.template > /tmp/kong.yml
+# Strip potential CRLF from env var (Windows .env files use CRLF)
+KONG_JWT_SECRET=$(printf '%s' "${KONG_JWT_SECRET:-}" | tr -d '\r')
+
+# Se KONG_JWT_SECRET está definida, usar o template com autenticação JWT
+if [ -n "${KONG_JWT_SECRET}" ]; then
+    echo "KONG_JWT_SECRET found — enabling JWT auth"
+    sed "s|\${KONG_JWT_SECRET}|${KONG_JWT_SECRET}|g" /etc/kong/kong.yml.template > /tmp/kong.yml
 else
-    echo "KONG_API_KEY not set — using config without auth"
+    echo "KONG_JWT_SECRET not set — using config without auth"
     cp /etc/kong/kong.yml /tmp/kong.yml
 fi
 

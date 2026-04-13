@@ -40,7 +40,10 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-markers = ["asyncio"]
+markers = [
+    "asyncio",
+    "integration: testes de integração que chamam serviços externos reais (LLM, S3). Requerem variáveis de ambiente configuradas. Execute com: pytest -m integration",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
