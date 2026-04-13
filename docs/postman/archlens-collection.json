@@ -10,12 +10,12 @@
 		"apikey": [
 			{
 				"key": "key",
-				"value": "X-API-Key",
+				"value": "Authorization",
 				"type": "string"
 			},
 			{
 				"key": "value",
-				"value": "{{kong_api_key}}",
+				"value": "Bearer {{kong_jwt_token}}",
 				"type": "string"
 			},
 			{
@@ -37,10 +37,10 @@
 			"type": "string"
 		},
 		{
-			"key": "kong_api_key",
+			"key": "kong_jwt_token",
 			"value": "",
 			"type": "string",
-			"description": "Kong API Key para autenticação via header X-API-Key"
+			"description": "JWT Bearer token para autenticação via header Authorization"
 		}
 	],
 	"item": [

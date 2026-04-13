@@ -15,7 +15,7 @@
 			"enabled": true
 		},
 		{
-			"key": "kong_api_key",
+			"key": "kong_jwt_token",
 			"value": "",
 			"type": "secret",
 			"enabled": true
