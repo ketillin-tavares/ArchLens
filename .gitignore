@@ -228,4 +228,4 @@ override.tf.json
 # Claude
 .claude/
 CLAUDE.md
-prompts/
+/prompts/
