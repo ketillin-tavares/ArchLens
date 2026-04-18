@@ -1,0 +1,144 @@
+# ══════════════════════════════════════════════════════════════════════
+#  upload-service — Deployment + Service
+# ══════════════════════════════════════════════════════════════════════
+#  Segredos via Vault Agent Injector (arquivo /vault/secrets/app-env
+#  carregado com `source` antes do uvicorn).
+#  Envs não sensíveis via ConfigMap.
+#  Acesso S3 via IRSA (ServiceAccount upload-service-sa).
+#  Imagem atualizada pelo services-deploy.yaml (kubectl set image).
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upload-service-config
+  namespace: archlens
+data:
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "upload_db"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "archlens"
+  RABBITMQ_EXCHANGE_NAME: "analise.events"
+  RABBITMQ_QUEUE_NAME: "upload-service.status-updates"
+  AWS_REGION: "us-east-2"
+  SERVICE_NAME: "upload-service"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  NRIA_DISPLAY_NAME: "upload-service"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-service
+  namespace: archlens
+  labels:
+    app: upload-service
+    project: archlens
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: upload-service
+  template:
+    metadata:
+      labels:
+        app: upload-service
+        project: archlens
+      annotations:
+        # ── Vault Agent Injector ────────────────────────────────
+        # Arquivo /vault/secrets/app-env montado com exports; o container
+        # faz `source` antes de subir o uvicorn.
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "archlens-services"
+        vault.hashicorp.com/agent-inject-secret-app-env: "secret/data/archlens/upload"
+        vault.hashicorp.com/agent-inject-template-app-env: |
+          {{- with secret "secret/data/archlens/upload" -}}
+          export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
+          export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
+          export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
+          export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
+          export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
+          export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
+          export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+          export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
+          export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+          {{- end }}
+    spec:
+      serviceAccountName: upload-service-sa
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: upload-service
+          # Tag sobrescrita pelo pipeline; manter :latest aqui apenas como placeholder
+          # (ECR esta IMMUTABLE; a tag real sera uma versao v*, setada via kubectl set image).
+          image: PLACEHOLDER/archlens/upload-service:latest
+          imagePullPolicy: IfNotPresent
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              [ -f /vault/secrets/app-env ] && . /vault/secrets/app-env
+              exec newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8000
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: upload-service-config
+
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upload-service
+  namespace: archlens
+  labels:
+    app: upload-service
+spec:
+  type: ClusterIP
+  selector:
+    app: upload-service
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

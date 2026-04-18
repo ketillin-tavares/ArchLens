@@ -76,6 +76,17 @@ model_list:
 #  réplicas do processing-service.
 
 litellm_settings:
+  # ── Prompt Injection Detection (built-in) ──
+  #  Detecta tentativas de prompt injection via heuristics e similarity.
+  #  Substitui o guardrail customizado regex — cobre mais padrões e é mantido
+  #  pela comunidade LiteLLM.
+  #  LLM API check desativado (evita chamada extra ao modelo).
+  callbacks: ["detect_prompt_injection"]
+  prompt_injection_params:
+    heuristics_check: true
+    similarity_check: true
+    llm_api_check: false
+
   cache: true
   cache_params:
     type: "local"                       # in-memory (sem Redis)
@@ -106,24 +117,16 @@ litellm_settings:
 #  GUARDRAILS — 3 camadas de proteção gratuita
 # ══════════════════════════════════════════════════════════════
 #
-#  1. Prompt Injection (pre_call) — detecta manipulação no prompt
-#  2. Presidio PII (pre_call) — mascara dados sensíveis
+#  1. Prompt Injection (callback) — built-in LiteLLM, heuristics + similarity
+#  2. Presidio PII (pre_call) — mascara dados sensíveis via Presidio
 #  3. JSON Validator (post_call) — garante que a resposta é JSON válido
 #
-#  Todos rodam localmente, sem API key externa, custo zero.
+#  Prompt Injection roda como callback em litellm_settings.
+#  Os demais rodam como guardrails. Todos locais, custo zero.
 
 guardrails:
 
-  # ── 1. Prompt Injection Detection (pre_call) ──────────────
-  #  Diagramas podem conter texto embutido que o modelo vision lê.
-  #  Um atacante poderia criar um diagrama com "ignore instructions..."
-  #  Este guardrail detecta padrões de injection em PT e EN.
-  - guardrail_name: "prompt-injection"
-    litellm_params:
-      guardrail: guardrails.prompt_injection.PromptInjectionDetector
-      mode: "pre_call"
-
-  # ── 2. Presidio PII Masking (pre_call) ────────────────────
+  # ── 1. Presidio PII Masking (pre_call) ─────────────────────
   #  Diagramas podem conter IPs internos, emails, nomes de servidores.
   #  Presidio mascara antes de enviar ao LLM.
   - guardrail_name: "pii-masking"
@@ -140,7 +143,7 @@ guardrails:
         CREDIT_CARD: "MASK"
         PERSON: "MASK"
 
-  # ── 3. JSON Response Validator (post_call) ────────────────
+  # ── 2. JSON Response Validator (post_call) ────────────────
   #  Valida que o LLM retornou JSON válido com as keys esperadas
   #  (componentes, riscos). Se não, rejeita e LiteLLM tenta o fallback.
   #  Também limpa markdown code blocks (```json...```) automaticamente.

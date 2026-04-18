@@ -1,0 +1,59 @@
+# ── HPA: processing-service ──────────────────────────────────────────
+# Escala com base em CPU (60%) — chamadas ao LiteLLM são CPU-intensive.
+# Threshold menor que os outros serviços porque o processamento de IA
+# consome mais recursos e demora mais por request.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: processing-service-hpa
+  namespace: archlens
+  labels:
+    app: processing-service
+    project: archlens
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: processing-service
+  minReplicas: 2
+  maxReplicas: 3
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: processing-service-pdb
+  namespace: archlens
+  labels:
+    app: processing-service
+    project: archlens
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: processing-service

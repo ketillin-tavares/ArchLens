@@ -1,0 +1,144 @@
+# ══════════════════════════════════════════════════════════════════════
+#  processing-service — Deployment + Service
+# ══════════════════════════════════════════════════════════════════════
+#  Pipeline multi-agent com roundtrips no LiteLLM (Gemini vision + text).
+#  Resources mais folgados que os outros servicos (LLM I/O-bound + parsing).
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: processing-service-config
+  namespace: archlens
+data:
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "processing_db"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "archlens"
+  RABBITMQ_EXCHANGE_NAME: "analise.events"
+  RABBITMQ_QUEUE_NAME: "processing-service.pipeline"
+  AWS_REGION: "us-east-2"
+  LLM_BASE_URL: "http://litellm-proxy.archlens.svc.cluster.local:4000"
+  LLM_MODEL_NAME: "archlens-vision"
+  LLM_ANALYZER_MODEL_NAME: "archlens-analyzer"
+  LLM_TEMPERATURE: "0.1"
+  LLM_MAX_TOKENS: "4096"
+  ENABLE_MULTIAGENT: "true"
+  ENABLE_JUDGE: "false"
+  SERVICE_NAME: "processing-service"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  NRIA_DISPLAY_NAME: "processing-service"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processing-service
+  namespace: archlens
+  labels:
+    app: processing-service
+    project: archlens
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: processing-service
+  template:
+    metadata:
+      labels:
+        app: processing-service
+        project: archlens
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "archlens-services"
+        vault.hashicorp.com/agent-inject-secret-app-env: "secret/data/archlens/processing"
+        vault.hashicorp.com/agent-inject-template-app-env: |
+          {{- with secret "secret/data/archlens/processing" -}}
+          export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
+          export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
+          export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
+          export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
+          export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
+          export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
+          export LLM_API_KEY="{{ .Data.data.LLM_API_KEY }}"
+          export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+          export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
+          export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+          {{- end }}
+    spec:
+      serviceAccountName: processing-service-sa
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: processing-service
+          image: PLACEHOLDER/archlens/processing-service:latest
+          imagePullPolicy: IfNotPresent
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              [ -f /vault/secrets/app-env ] && . /vault/secrets/app-env
+              exec newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8001
+
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: processing-service-config
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 800m
+              memory: 1Gi
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: processing-service
+  namespace: archlens
+  labels:
+    app: processing-service
+spec:
+  type: ClusterIP
+  selector:
+    app: processing-service
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+      protocol: TCP

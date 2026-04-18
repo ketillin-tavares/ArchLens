@@ -1,0 +1,133 @@
+name: "Quality: SonarCloud Scan"
+
+# ── Roda em todo PR e push em main ────────────────────────────────────
+# SonarCloud usa o resultado para aplicar Quality Gates em PRs antes do merge.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to scan (or all)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - upload-service
+          - processing-service
+          - report-service
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Opt-in a Node.js 24 ate que actions/checkout e dorny/paths-filter lancem
+# major versions no runtime novo. Remove quando o default do runner migrar (2026-06).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # ── Detectar quais serviços mudaram ────────────────────────────────
+  detect-changes:
+    name: "Detect changed services"
+    runs-on: ubuntu-latest
+    outputs:
+      upload: ${{ steps.changes.outputs.upload }}
+      processing: ${{ steps.changes.outputs.processing }}
+      report: ${{ steps.changes.outputs.report }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            upload:
+              - 'services/upload-service/**'
+            processing:
+              - 'services/processing-service/**'
+            report:
+              - 'services/report-service/**'
+
+      - name: Override via workflow_dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          SVC="${{ github.event.inputs.service }}"
+          echo "upload=$( [[ "$SVC" == "all" || "$SVC" == "upload-service" ]] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "processing=$( [[ "$SVC" == "all" || "$SVC" == "processing-service" ]] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "report=$( [[ "$SVC" == "all" || "$SVC" == "report-service" ]] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+  # ── Sonar Scan por serviço ─────────────────────────────────────────
+  sonar-scan:
+    name: "${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: upload-service
+            enabled: ${{ needs.detect-changes.outputs.upload }}
+          - service: processing-service
+            enabled: ${{ needs.detect-changes.outputs.processing }}
+          - service: report-service
+            enabled: ${{ needs.detect-changes.outputs.report }}
+
+    steps:
+      - name: Skip if unchanged
+        if: matrix.enabled != 'true'
+        run: echo "Skipping ${{ matrix.service }} (no changes)" && exit 0
+
+      - name: Checkout
+        if: matrix.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          # SonarCloud precisa do histórico completo para blame/new-code detection
+          fetch-depth: 0
+
+      - name: Setup Python
+        if: matrix.enabled == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        if: matrix.enabled == 'true'
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/${{ matrix.service }}/uv.lock
+
+      - name: Install dependencies
+        if: matrix.enabled == 'true'
+        working-directory: services/${{ matrix.service }}
+        run: uv sync --all-extras --dev
+
+      - name: Run tests with coverage
+        if: matrix.enabled == 'true'
+        working-directory: services/${{ matrix.service }}
+        run: |
+          uv run pytest \
+            --cov=src \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term \
+            tests/
+
+      - name: SonarCloud Scan
+        if: matrix.enabled == 'true'
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          projectBaseDir: services/${{ matrix.service }}
+          args: >
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ vars.SONAR_ORGANIZATION }}_archlens-${{ matrix.service }}
