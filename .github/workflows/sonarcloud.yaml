@@ -24,6 +24,11 @@ permissions:
   contents: read
   pull-requests: read
 
+# Opt-in a Node.js 24 ate que actions/checkout e dorny/paths-filter lancem
+# major versions no runtime novo. Remove quando o default do runner migrar (2026-06).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ── Detectar quais serviços mudaram ────────────────────────────────
   detect-changes:
@@ -117,7 +122,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: matrix.enabled == 'true'
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
