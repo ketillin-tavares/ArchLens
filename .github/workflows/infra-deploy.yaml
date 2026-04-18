@@ -1,0 +1,467 @@
+name: "Infra: Terraform Deploy"
+
+# ── Trigger por tag (infra/v*) ou manual ─────────────────────────────
+# Criar tag: git tag infra/v1.0.0 && git push origin infra/v1.0.0
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to run"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      workspace:
+        description: "Which workspace to target"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - 01-foundation
+          - 02-cluster
+          - 03-platform
+  push:
+    tags:
+      - "infra/v*"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: infra-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_CLOUD_ORGANIZATION: "archlens"
+  TF_VERSION: "1.13.3"
+  AWS_REGION: "us-east-2"
+  EKS_CLUSTER_NAME: "archlens-cluster"
+
+jobs:
+  # ── 01-foundation ──────────────────────────────────────────────────
+  foundation-plan:
+    name: "01-foundation (plan)"
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.inputs.action != 'destroy' &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '01-foundation' ||
+       github.event_name == 'push')
+    defaults:
+      run:
+        working-directory: infra/terraform/01-foundation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/01-foundation/.terraform/providers
+          key: tf-foundation-${{ runner.os }}-${{ hashFiles('infra/terraform/01-foundation/.terraform.lock.hcl') }}
+          restore-keys: tf-foundation-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to summary
+        run: |
+          echo '### 01-foundation — Terraform Plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -50 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-foundation
+          path: infra/terraform/01-foundation/tfplan
+          retention-days: 1
+
+  foundation-apply:
+    name: "01-foundation (apply)"
+    runs-on: ubuntu-latest
+    needs: [foundation-plan]
+    if: github.event.inputs.action == 'apply'
+    defaults:
+      run:
+        working-directory: infra/terraform/01-foundation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/01-foundation/.terraform/providers
+          key: tf-foundation-${{ runner.os }}-${{ hashFiles('infra/terraform/01-foundation/.terraform.lock.hcl') }}
+          restore-keys: tf-foundation-${{ runner.os }}-
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-foundation
+          path: infra/terraform/01-foundation
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false tfplan
+
+  foundation-destroy:
+    name: "01-foundation (destroy)"
+    runs-on: ubuntu-latest
+    needs: [cluster-destroy]
+    if: >-
+      always() &&
+      github.event.inputs.action == 'destroy' &&
+      (needs.cluster-destroy.result == 'success' || needs.cluster-destroy.result == 'skipped') &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '01-foundation')
+    defaults:
+      run:
+        working-directory: infra/terraform/01-foundation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
+
+  # ── 02-cluster ─────────────────────────────────────────────────────
+  cluster-plan:
+    name: "02-cluster (plan)"
+    runs-on: ubuntu-latest
+    needs: [foundation-apply]
+    if: >-
+      always() &&
+      github.event.inputs.action != 'destroy' &&
+      (needs.foundation-apply.result == 'success' || needs.foundation-apply.result == 'skipped') &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '02-cluster' ||
+       github.event_name == 'push')
+    defaults:
+      run:
+        working-directory: infra/terraform/02-cluster
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/02-cluster/.terraform/providers
+          key: tf-cluster-${{ runner.os }}-${{ hashFiles('infra/terraform/02-cluster/.terraform.lock.hcl') }}
+          restore-keys: tf-cluster-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to summary
+        run: |
+          echo '### 02-cluster — Terraform Plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -50 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-cluster
+          path: infra/terraform/02-cluster/tfplan
+          retention-days: 1
+
+  cluster-apply:
+    name: "02-cluster (apply)"
+    runs-on: ubuntu-latest
+    needs: [cluster-plan]
+    if: github.event.inputs.action == 'apply'
+    defaults:
+      run:
+        working-directory: infra/terraform/02-cluster
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/02-cluster/.terraform/providers
+          key: tf-cluster-${{ runner.os }}-${{ hashFiles('infra/terraform/02-cluster/.terraform.lock.hcl') }}
+          restore-keys: tf-cluster-${{ runner.os }}-
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-cluster
+          path: infra/terraform/02-cluster
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false tfplan
+
+  cluster-destroy:
+    name: "02-cluster (destroy)"
+    runs-on: ubuntu-latest
+    needs: [platform-destroy]
+    if: >-
+      always() &&
+      github.event.inputs.action == 'destroy' &&
+      (needs.platform-destroy.result == 'success' || needs.platform-destroy.result == 'skipped') &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '02-cluster')
+    defaults:
+      run:
+        working-directory: infra/terraform/02-cluster
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
+
+  # ── 03-platform ────────────────────────────────────────────────────
+  platform-plan:
+    name: "03-platform (plan)"
+    runs-on: ubuntu-latest
+    needs: [cluster-apply]
+    if: >-
+      always() &&
+      github.event.inputs.action != 'destroy' &&
+      (needs.cluster-apply.result == 'success' || needs.cluster-apply.result == 'skipped') &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '03-platform' ||
+       github.event_name == 'push')
+    defaults:
+      run:
+        working-directory: infra/terraform/03-platform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/03-platform/.terraform/providers
+          key: tf-platform-${{ runner.os }}-${{ hashFiles('infra/terraform/03-platform/.terraform.lock.hcl') }}
+          restore-keys: tf-platform-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to summary
+        run: |
+          echo '### 03-platform — Terraform Plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -50 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-platform
+          path: infra/terraform/03-platform/tfplan
+          retention-days: 1
+
+  platform-apply:
+    name: "03-platform (apply)"
+    runs-on: ubuntu-latest
+    needs: [platform-plan]
+    if: github.event.inputs.action == 'apply'
+    defaults:
+      run:
+        working-directory: infra/terraform/03-platform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/03-platform/.terraform/providers
+          key: tf-platform-${{ runner.os }}-${{ hashFiles('infra/terraform/03-platform/.terraform.lock.hcl') }}
+          restore-keys: tf-platform-${{ runner.os }}-
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-platform
+          path: infra/terraform/03-platform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false tfplan
+
+  platform-destroy:
+    name: "03-platform (destroy)"
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.inputs.action == 'destroy' &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '03-platform')
+    defaults:
+      run:
+        working-directory: infra/terraform/03-platform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
+
+  # ── K8s Manifests (Kong Ingress + Plugins) ─────────────────────────
+  k8s-manifests:
+    name: "K8s Manifests (Kong + HPA)"
+    runs-on: ubuntu-latest
+    needs: [platform-apply]
+    if: >-
+      always() &&
+      (needs.platform-apply.result == 'success' || needs.platform-apply.result == 'skipped') &&
+      github.event.inputs.action != 'destroy'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ env.EKS_CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Apply Kong manifests
+        run: kubectl apply -f infra/k8s/ingress/kong-config.yaml
+
+      - name: Apply HPA manifests
+        run: kubectl apply -f infra/k8s/hpa/
+
+      - name: Verify K8s resources
+        run: |
+          echo '### K8s Manifests — Kong' >> "$GITHUB_STEP_SUMMARY"
+          echo '#### KongPlugins' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl get kongplugin -n archlens >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '#### Ingress' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl get ingress -n archlens >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '#### HPA' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl get hpa -n archlens >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -217,6 +217,14 @@ __marimo__/
 # New Relic state (contains account/policy IDs)
 docs/newrelic/.alerts_state.json
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+override.tf
+override.tf.json
+
 # Claude
 .claude/
 CLAUDE.md

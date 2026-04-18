@@ -1,0 +1,227 @@
+# ── KongPlugin: Rate Limiting ─────────────────────────────────────────
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+plugin: rate-limiting
+config:
+  minute: 30
+  policy: local
+  fault_tolerant: true
+  hide_client_headers: false
+---
+# ── KongPlugin: CORS ──────────────────────────────────────────────────
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: cors
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+plugin: cors
+config:
+  origins:
+    - "*"
+  methods:
+    - GET
+    - POST
+    - OPTIONS
+  headers:
+    - Content-Type
+    - Authorization
+  max_age: 3600
+---
+# ── KongPlugin: Request Size Limiting (global — 10MB) ────────────────
+# No docker-compose eh plugin global; aqui aplicamos em todos os Ingresses.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: request-size-limiting
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+plugin: request-size-limiting
+config:
+  allowed_payload_size: 10
+  size_unit: megabytes
+---
+# ── KongPlugin: JWT Auth ──────────────────────────────────────────────
+# Mesmo metodo do docker-compose (gateways/kong/kong.yml.template).
+# Aplicado APENAS nas rotas /v1/*. As rotas de health (/upload, /report,
+# /processing) NAO tem auth — espelha o comportamento do compose.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+plugin: jwt
+config:
+  claims_to_verify:
+    - exp
+  key_claim_name: iss
+  secret_is_base64: false
+---
+# ── KongConsumer + Credential (JWT) ───────────────────────────────────
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: archlens-client
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+username: archlens-client
+credentials:
+  - archlens-jwt-credential
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: archlens-jwt-credential
+  namespace: archlens
+  labels:
+    konghq.com/credential: jwt
+type: Opaque
+stringData:
+  algorithm: "HS256"
+  key: "archlens-issuer"
+  secret: "change-me-via-vault-bootstrap"   # trocar pelo valor do Vault apos bootstrap (KONG_JWT_SECRET)
+---
+# ══════════════════════════════════════════════════════════════════════
+#  UPLOAD SERVICE — 2 Ingresses (/v1/analises com JWT + /upload health)
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: upload-service-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting,jwt
+    konghq.com/strip-path: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /v1/analises
+            pathType: Prefix
+            backend:
+              service:
+                name: upload-service
+                port:
+                  number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: upload-service-health-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting
+    konghq.com/strip-path: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /upload
+            pathType: Prefix
+            backend:
+              service:
+                name: upload-service
+                port:
+                  number: 8000
+---
+# ══════════════════════════════════════════════════════════════════════
+#  REPORT SERVICE — 2 Ingresses (/v1/relatorios com JWT + /report health)
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: report-service-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting,jwt
+    konghq.com/strip-path: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /v1/relatorios
+            pathType: Prefix
+            backend:
+              service:
+                name: report-service
+                port:
+                  number: 8002
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: report-service-health-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting
+    konghq.com/strip-path: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /report
+            pathType: Prefix
+            backend:
+              service:
+                name: report-service
+                port:
+                  number: 8002
+---
+# ══════════════════════════════════════════════════════════════════════
+#  PROCESSING SERVICE — 2 Ingresses (/v1/processamentos JWT + /processing health)
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: processing-service-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting,jwt
+    konghq.com/strip-path: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /v1/processamentos
+            pathType: Prefix
+            backend:
+              service:
+                name: processing-service
+                port:
+                  number: 8001
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: processing-service-health-ingress
+  namespace: archlens
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: rate-limiting,cors,request-size-limiting
+    konghq.com/strip-path: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /processing
+            pathType: Prefix
+            backend:
+              service:
+                name: processing-service
+                port:
+                  number: 8001
