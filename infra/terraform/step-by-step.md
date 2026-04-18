@@ -68,7 +68,7 @@ litellm_db_password, etc.) vivem no **Terraform Cloud Variable Set** — não em
 | `TF_API_TOKEN` | `infra-deploy.yaml` (todos os jobs Terraform) | Autentica a CLI no TFC via `hashicorp/setup-terraform` (`cli_config_credentials_token`). Gerar em **TFC > User Settings > Tokens** com escopo de team que tenha acesso aos 3 workspaces. |
 | `AWS_ACCESS_KEY_ID` | `infra-deploy.yaml` (job `k8s-manifests`) e `services-deploy.yaml` (build + deploy) | Usado por `aws-actions/configure-aws-credentials` para rodar `aws eks update-kubeconfig`, push no ECR e `kubectl apply`/`kubectl set image`. |
 | `AWS_SECRET_ACCESS_KEY` | `infra-deploy.yaml` (job `k8s-manifests`) e `services-deploy.yaml` | Par da access key acima. |
-| `SONAR_TOKEN` | `sonarcloud.yaml` (scan dos 3 services em PRs + push em main) | Token de usuário gerado em **SonarCloud > My Account > Security**. Usado pelo `SonarSource/sonarqube-scan-action` para enviar coverage + análise estática ao projeto SonarCloud. Ver Etapa 0.5. |
+| `SONAR_TOKEN` | `sonarcloud.yaml` (scan dos 3 services em push na main + dispatch manual) | Token de usuário gerado em **SonarCloud > My Account > Security**. Usado pelo `SonarSource/sonarqube-scan-action` para enviar coverage + análise estática ao projeto SonarCloud. Ver Etapa 0.5. |
 
 **Repository variables (não-sensíveis):**
 
@@ -83,8 +83,18 @@ litellm_db_password, etc.) vivem no **Terraform Cloud Variable Set** — não em
 ### 0.5 — Configurar SonarCloud (quality gate em PRs)
 
 O workflow `.github/workflows/sonarcloud.yaml` roda análise estática + coverage
-nos 3 services em todo PR e push em `main`, aplicando uma Quality Gate que pode
-bloquear o merge. Configure uma vez:
+nos 3 services **após merge na `main`** (trigger `push`) e também via
+`workflow_dispatch` manual. Não roda em PRs — o Quality Gate age como
+relatório pós-merge, não como gate bloqueante.
+
+**Comportamento por trigger:**
+- **`push` em `main`** — usa `dorny/paths-filter` pra só escanear services que
+  tiveram alteração no commit (evita rodar scan completo quando só a infra mudou).
+- **`workflow_dispatch`** — escaneia o service selecionado (ou `all`) **sempre**,
+  independente de ter havido mudança. Útil pra re-analisar após ajuste de
+  config/quality gate ou forçar um novo baseline.
+
+Configure uma vez:
 
 1. **Criar organização e importar o repo:**
    - Acesse [sonarcloud.io](https://sonarcloud.io) e faça login com GitHub.
@@ -114,14 +124,9 @@ bloquear o merge. Configure uma vez:
 
 4. **Configurar Quality Gate (opcional mas recomendado):**
    - SonarCloud > cada projeto > **Quality Gates** > use "Sonar way" (default)
-     ou crie uma custom. A default já bloqueia PRs com coverage < 80% em
-     código novo, code smells críticos, vulnerabilidades ou duplicação alta.
-
-5. **Proteger o branch `main`:**
-   - Repo > **Settings > Branches > Add branch protection rule** para `main`.
-   - Habilite **Require status checks to pass before merging** e selecione os
-     3 checks `Quality: SonarCloud Scan / <service>`. Sem isso, o PR pode
-     ser mergeado mesmo com a Quality Gate falhando.
+     ou crie uma custom. A Quality Gate **não bloqueia merge** (o workflow
+     não roda em PRs), mas o resultado aparece no dashboard SonarCloud
+     de cada projeto — serve como termômetro pós-merge.
 
 > **Agnóstico ao dono do fork:** `projectKey` e `organization` **não** ficam
 > hardcoded nos `sonar-project.properties` — eles são injetados pelo workflow

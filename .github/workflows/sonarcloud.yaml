@@ -1,10 +1,9 @@
 name: "Quality: SonarCloud Scan"
 
-# ── Roda em todo PR e push em main ────────────────────────────────────
-# SonarCloud usa o resultado para aplicar Quality Gates em PRs antes do merge.
+# ── Roda apos merge na main (push) ou disparo manual ─────────────────
+# Em push: so escaneia services que tiveram alteracao (paths-filter).
+# Em workflow_dispatch: escaneia o service escolhido (ou todos), ignorando diff.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -22,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 # Opt-in a Node.js 24 ate que actions/checkout e dorny/paths-filter lancem
 # major versions no runtime novo. Remove quando o default do runner migrar (2026-06).
@@ -35,17 +33,19 @@ jobs:
     name: "Detect changed services"
     runs-on: ubuntu-latest
     outputs:
-      upload: ${{ steps.changes.outputs.upload }}
-      processing: ${{ steps.changes.outputs.processing }}
-      report: ${{ steps.changes.outputs.report }}
+      upload: ${{ steps.changes.outputs.upload || steps.manual.outputs.upload }}
+      processing: ${{ steps.changes.outputs.processing || steps.manual.outputs.processing }}
+      report: ${{ steps.changes.outputs.report || steps.manual.outputs.report }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect changes
+      # Push em main: detecta services alterados no commit
+      - name: Detect changes (push)
         id: changes
+        if: github.event_name == 'push'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -56,7 +56,9 @@ jobs:
             report:
               - 'services/report-service/**'
 
-      - name: Override via workflow_dispatch
+      # workflow_dispatch: ignora diff, escaneia service(s) selecionado(s)
+      - name: Force scan (manual dispatch)
+        id: manual
         if: github.event_name == 'workflow_dispatch'
         run: |
           SVC="${{ github.event.inputs.service }}"
