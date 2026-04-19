@@ -86,8 +86,8 @@ resource "kubernetes_config_map" "litellm" {
 
         cache = true
         cache_params = {
-          type = "local"
-          ttl  = 3600
+          type                 = "local"
+          ttl                  = 3600
           supported_call_types = ["acompletion", "completion"]
         }
 
@@ -100,11 +100,11 @@ resource "kubernetes_config_map" "litellm" {
         cooldown_time   = 30
 
         context_window_fallbacks = [
-          { "archlens-vision"   = ["archlens-vision-fallback"] },
+          { "archlens-vision" = ["archlens-vision-fallback"] },
           { "archlens-analyzer" = ["archlens-analyzer-fallback"] }
         ]
         content_policy_fallbacks = [
-          { "archlens-vision"   = ["archlens-vision-fallback"] },
+          { "archlens-vision" = ["archlens-vision-fallback"] },
           { "archlens-analyzer" = ["archlens-analyzer-fallback"] }
         ]
       }
@@ -113,11 +113,11 @@ resource "kubernetes_config_map" "litellm" {
         {
           guardrail_name = "pii-masking"
           litellm_params = {
-            guardrail                     = "presidio"
-            mode                          = "pre_call"
-            output_parse_pii              = true
-            presidio_ad_hoc_recognizers   = null
-            presidio_language             = "pt"
+            guardrail                   = "presidio"
+            mode                        = "pre_call"
+            output_parse_pii            = true
+            presidio_ad_hoc_recognizers = null
+            presidio_language           = "pt"
             pii_entities_config = {
               EMAIL_ADDRESS = "MASK"
               PHONE_NUMBER  = "MASK"
@@ -148,7 +148,7 @@ resource "kubernetes_config_map" "litellm" {
         cooldown_time          = 30
         enable_pre_call_checks = true
         fallbacks = [
-          { "archlens-vision"   = ["archlens-vision-fallback"] },
+          { "archlens-vision" = ["archlens-vision-fallback"] },
           { "archlens-analyzer" = ["archlens-analyzer-fallback"] }
         ]
       }

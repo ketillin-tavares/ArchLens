@@ -25,30 +25,28 @@ resource "helm_release" "alb_controller" {
   namespace  = "kube-system"
   version    = var.alb_controller_chart_version
 
-  set {
-    name  = "clusterName"
-    value = module.eks.cluster_name
-  }
-
-  set {
-    name  = "serviceAccount.create"
-    value = "false"
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = kubernetes_service_account.alb_controller.metadata[0].name
-  }
-
-  set {
-    name  = "region"
-    value = var.aws_region
-  }
-
-  set {
-    name  = "vpcId"
-    value = local.vpc_id
-  }
+  set = [
+    {
+      name  = "clusterName"
+      value = module.eks.cluster_name
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "false"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = kubernetes_service_account.alb_controller.metadata[0].name
+    },
+    {
+      name  = "region"
+      value = var.aws_region
+    },
+    {
+      name  = "vpcId"
+      value = local.vpc_id
+    },
+  ]
 
   depends_on = [
     module.eks,

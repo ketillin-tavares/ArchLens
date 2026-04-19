@@ -41,6 +41,9 @@ psql-processing:
 psql-report:
 	docker compose exec postgres psql -U archlens -d report_db
 
+pre-commit:
+	pre-commit run --all-files
+
 rabbitmq-ui:
 	@echo "RabbitMQ Management: http://localhost:15672 (archlens/archlens_dev)"
 
