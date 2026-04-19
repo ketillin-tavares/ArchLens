@@ -22,59 +22,35 @@ resource "helm_release" "newrelic" {
   version    = var.newrelic_chart_version
   namespace  = kubernetes_namespace.newrelic.metadata[0].name
 
-  # Global — license key e nome do cluster
-  set_sensitive {
-    name  = "global.licenseKey"
-    value = var.newrelic_license_key
-  }
-  set {
-    name  = "global.cluster"
-    value = local.cluster_name
-  }
-  set {
-    name  = "global.privileged"
-    value = "true"
-  }
+  # Global — cluster e privileged
+  set = [
+    { name = "global.cluster", value = local.cluster_name },
+    { name = "global.privileged", value = "true" },
 
-  # Infrastructure Agent (DaemonSet — roda em TODOS os nodes)
-  set {
-    name  = "newrelic-infrastructure.enabled"
-    value = "true"
-  }
+    # Infrastructure Agent (DaemonSet — roda em TODOS os nodes)
+    { name = "newrelic-infrastructure.enabled", value = "true" },
 
-  # Kubernetes Events Integration
-  set {
-    name  = "nri-kube-events.enabled"
-    value = "true"
-  }
+    # Kubernetes Events Integration
+    { name = "nri-kube-events.enabled", value = "true" },
 
-  # Kubernetes State Metrics (pods, deployments, HPA, PVC)
-  set {
-    name  = "kube-state-metrics.enabled"
-    value = "true"
-  }
+    # Kubernetes State Metrics (pods, deployments, HPA, PVC)
+    { name = "kube-state-metrics.enabled", value = "true" },
 
-  # Metadata Injection — correlaciona APM traces com pods/nodes no NR UI
-  set {
-    name  = "nri-metadata-injection.enabled"
-    value = "true"
-  }
+    # Metadata Injection — correlaciona APM traces com pods/nodes no NR UI
+    { name = "nri-metadata-injection.enabled", value = "true" },
 
-  # Prometheus Agent — scrape métricas internas dos pods
-  set {
-    name  = "newrelic-prometheus-agent.enabled"
-    value = "true"
-  }
-  set {
-    name  = "newrelic-prometheus-agent.config.kubernetes.integrations_filter.enabled"
-    value = "false"
-  }
+    # Prometheus Agent — scrape métricas internas dos pods
+    { name = "newrelic-prometheus-agent.enabled", value = "true" },
+    { name = "newrelic-prometheus-agent.config.kubernetes.integrations_filter.enabled", value = "false" },
 
-  # Logs — encaminha logs de todos os containers para New Relic Logs
-  set {
-    name  = "newrelic-logging.enabled"
-    value = "true"
-  }
+    # Logs — encaminha logs de todos os containers para New Relic Logs
+    { name = "newrelic-logging.enabled", value = "true" },
+  ]
+
+  # License key (sensível)
+  set_sensitive = [
+    { name = "global.licenseKey", value = var.newrelic_license_key },
+  ]
 
   depends_on = [kubernetes_namespace.newrelic]
 }

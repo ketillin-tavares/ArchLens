@@ -9,29 +9,13 @@ resource "helm_release" "metrics_server" {
   version    = var.metrics_server_chart_version
   namespace  = "kube-system"
 
-  # Réplicas — 1 para dev, 2+ para produção
-  set {
-    name  = "replicas"
-    value = "1"
-  }
-
-  # Resources mínimos
-  set {
-    name  = "resources.requests.cpu"
-    value = "100m"
-  }
-  set {
-    name  = "resources.requests.memory"
-    value = "128Mi"
-  }
-  set {
-    name  = "resources.limits.cpu"
-    value = "250m"
-  }
-  set {
-    name  = "resources.limits.memory"
-    value = "256Mi"
-  }
+  set = [
+    { name = "replicas", value = "1" },
+    { name = "resources.requests.cpu", value = "100m" },
+    { name = "resources.requests.memory", value = "128Mi" },
+    { name = "resources.limits.cpu", value = "250m" },
+    { name = "resources.limits.memory", value = "256Mi" },
+  ]
 
   depends_on = [module.eks]
 }

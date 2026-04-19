@@ -9,77 +9,37 @@ resource "helm_release" "rabbitmq" {
   version    = var.rabbitmq_chart_version
   namespace  = data.kubernetes_namespace.archlens.metadata[0].name
 
-  # Credenciais
-  set {
-    name  = "auth.username"
-    value = "archlens"
-  }
-  set_sensitive {
-    name  = "auth.password"
-    value = var.rabbitmq_password
-  }
-  set_sensitive {
-    name  = "auth.erlangCookie"
-    value = var.rabbitmq_erlang_cookie
-  }
+  set = [
+    # Credenciais (usuário)
+    { name = "auth.username", value = "archlens" },
 
-  # Persistência
-  set {
-    name  = "persistence.enabled"
-    value = "true"
-  }
-  set {
-    name  = "persistence.size"
-    value = var.rabbitmq_storage_size
-  }
-  set {
-    name  = "persistence.storageClass"
-    value = "gp2"
-  }
+    # Persistência
+    { name = "persistence.enabled", value = "true" },
+    { name = "persistence.size", value = var.rabbitmq_storage_size },
+    { name = "persistence.storageClass", value = "gp2" },
 
-  # Resources
-  set {
-    name  = "resources.requests.memory"
-    value = "256Mi"
-  }
-  set {
-    name  = "resources.requests.cpu"
-    value = "100m"
-  }
-  set {
-    name  = "resources.limits.memory"
-    value = "512Mi"
-  }
-  set {
-    name  = "resources.limits.cpu"
-    value = "500m"
-  }
+    # Resources
+    { name = "resources.requests.memory", value = "256Mi" },
+    { name = "resources.requests.cpu", value = "100m" },
+    { name = "resources.limits.memory", value = "512Mi" },
+    { name = "resources.limits.cpu", value = "500m" },
 
-  # Management Plugin (UI na porta 15672) + peer discovery K8s
-  set {
-    name  = "plugins"
-    value = "rabbitmq_management rabbitmq_peer_discovery_k8s"
-  }
-  set {
-    name  = "service.type"
-    value = "ClusterIP"
-  }
+    # Management Plugin (UI na porta 15672) + peer discovery K8s
+    { name = "plugins", value = "rabbitmq_management rabbitmq_peer_discovery_k8s" },
+    { name = "service.type", value = "ClusterIP" },
 
-  # Replication: 1 node (economizar para hackathon)
-  set {
-    name  = "replicaCount"
-    value = "1"
-  }
+    # Replication: 1 node (economizar para hackathon)
+    { name = "replicaCount", value = "1" },
 
-  # Definitions — carrega exchange, filas e bindings automaticamente
-  set {
-    name  = "loadDefinition.enabled"
-    value = "true"
-  }
-  set {
-    name  = "loadDefinition.existingSecret"
-    value = kubernetes_secret.rabbitmq_definitions.metadata[0].name
-  }
+    # Definitions — carrega exchange, filas e bindings automaticamente
+    { name = "loadDefinition.enabled", value = "true" },
+    { name = "loadDefinition.existingSecret", value = kubernetes_secret.rabbitmq_definitions.metadata[0].name },
+  ]
+
+  set_sensitive = [
+    { name = "auth.password", value = var.rabbitmq_password },
+    { name = "auth.erlangCookie", value = var.rabbitmq_erlang_cookie },
+  ]
 
   depends_on = [
     data.kubernetes_namespace.archlens,

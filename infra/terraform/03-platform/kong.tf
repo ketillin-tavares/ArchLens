@@ -9,61 +9,27 @@ resource "helm_release" "kong" {
   version    = var.kong_chart_version
   namespace  = data.kubernetes_namespace.archlens.metadata[0].name
 
-  # Proxy exposto externamente — endpoint público da API
-  set {
-    name  = "gateway.proxy.type"
-    value = "LoadBalancer"
-  }
-  set {
-    name  = "gateway.proxy.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme"
-    value = "internet-facing"
-  }
+  set = [
+    # Proxy exposto externamente — endpoint público da API
+    { name = "gateway.proxy.type", value = "LoadBalancer" },
+    { name = "gateway.proxy.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = "internet-facing" },
 
-  # Admin API — interno apenas (ClusterIP)
-  set {
-    name  = "gateway.admin.type"
-    value = "ClusterIP"
-  }
-  set {
-    name  = "gateway.admin.enabled"
-    value = "true"
-  }
+    # Admin API — interno apenas (ClusterIP)
+    { name = "gateway.admin.type", value = "ClusterIP" },
+    { name = "gateway.admin.enabled", value = "true" },
 
-  # Resources do proxy
-  set {
-    name  = "gateway.resources.requests.memory"
-    value = "256Mi"
-  }
-  set {
-    name  = "gateway.resources.requests.cpu"
-    value = "250m"
-  }
-  set {
-    name  = "gateway.resources.limits.memory"
-    value = "512Mi"
-  }
-  set {
-    name  = "gateway.resources.limits.cpu"
-    value = "500m"
-  }
+    # Resources do proxy
+    { name = "gateway.resources.requests.memory", value = "256Mi" },
+    { name = "gateway.resources.requests.cpu", value = "250m" },
+    { name = "gateway.resources.limits.memory", value = "512Mi" },
+    { name = "gateway.resources.limits.cpu", value = "500m" },
 
-  # Resources do controller
-  set {
-    name  = "controller.resources.requests.memory"
-    value = "128Mi"
-  }
-  set {
-    name  = "controller.resources.requests.cpu"
-    value = "100m"
-  }
-  set {
-    name  = "controller.resources.limits.memory"
-    value = "256Mi"
-  }
-  set {
-    name  = "controller.resources.limits.cpu"
-    value = "250m"
-  }
+    # Resources do controller
+    { name = "controller.resources.requests.memory", value = "128Mi" },
+    { name = "controller.resources.requests.cpu", value = "100m" },
+    { name = "controller.resources.limits.memory", value = "256Mi" },
+    { name = "controller.resources.limits.cpu", value = "250m" },
+  ]
 
   depends_on = [
     data.kubernetes_namespace.archlens,
