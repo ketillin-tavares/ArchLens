@@ -286,6 +286,7 @@ services:
       KONG_ADMIN_GUI_LISTEN: "0.0.0.0:8002"
       KONG_ADMIN_GUI_URL: "http://localhost:8002"
       KONG_API_KEY: ${KONG_API_KEY:-}
+      CLERK_ISSUER_URL: ${CLERK_ISSUER_URL:-}
     env_file:
       - .env
     volumes:
@@ -300,6 +301,32 @@ services:
         condition: service_healthy
       report-service:
         condition: service_healthy
+    networks:
+      - archlens
+
+  # ── Frontend ─────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        VITE_KONG_BASE_URL: "/api"
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
+        VITE_CLERK_JWT_TEMPLATE: ${VITE_CLERK_JWT_TEMPLATE:-archlens}
+    container_name: frontend
+    hostname: frontend
+    ports:
+      - "8091:8080"
+    depends_on:
+      kong:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     networks:
       - archlens
 
