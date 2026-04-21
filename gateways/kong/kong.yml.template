@@ -5,7 +5,7 @@ consumers:
   - username: archlens-client
     jwt_secrets:
       - algorithm: HS256
-        key: archlens-issuer
+        key: "${CLERK_ISSUER_URL}"
         secret: ${KONG_JWT_SECRET}
 
 services:

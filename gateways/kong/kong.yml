@@ -64,11 +64,15 @@ plugins:
       fault_tolerant: true
       hide_client_headers: false
 
-  # CORS: permitir todas as origens (dev)
+  # CORS (dev): qualquer porta de localhost / 127.0.0.1 via regex.
+  # Kong CORS aceita regex em origins — cobre Vite (5173), Nginx local (8090)
+  # e qualquer outra porta que o dev queira usar sem reconfigurar.
+  # Wildcard "*" não pode ser usado junto com credentials=true.
   - name: cors
     config:
       origins:
-        - "*"
+        - "http://localhost(:[0-9]+)?"
+        - "http://127\\.0\\.0\\.1(:[0-9]+)?"
       methods:
         - GET
         - POST
@@ -76,6 +80,10 @@ plugins:
       headers:
         - Content-Type
         - Authorization
+        - Cookie
+      exposed_headers:
+        - Set-Cookie
+      credentials: true
       max_age: 3600
 
   # Limitar tamanho do request a 10MB

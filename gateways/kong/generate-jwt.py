@@ -1,12 +1,17 @@
 """Gera um JWT válido para testar as APIs via Kong."""
 
 import datetime
+import os
 import sys
 
 import jwt
 
+from dotenv import load_dotenv
 
-SECRET: str = sys.argv[1] if len(sys.argv) > 1 else "archlens-jwt-secret-dev"
+load_dotenv(dotenv_path=".env", override=True)
+
+
+SECRET: str = sys.argv[1] if len(sys.argv) > 1 else os.getenv("KONG_JWT_SECRET")
 EXPIRY_HOURS: int = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
 
@@ -21,7 +26,7 @@ def build_payload(expiry_hours: int) -> dict:
     """
     now = datetime.datetime.now(datetime.timezone.utc)
     return {
-        "iss": "archlens-issuer",
+        "iss": os.getenv("CLERK_ISSUER_URL", "archlens-issuer"),
         "sub": "archlens-client",
         "role": "admin",
         "iat": now,

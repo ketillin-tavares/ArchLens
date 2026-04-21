@@ -24,6 +24,14 @@ on:
           - 01-foundation
           - 02-cluster
           - 03-platform
+      environment:
+        description: "Environment (usado p/ descobrir a distribuição CloudFront no step Kong)"
+        required: true
+        default: "prod"
+        type: choice
+        options:
+          - prod
+          - dev
   push:
     tags:
       - "infra/v*"
@@ -41,6 +49,7 @@ env:
   TF_VERSION: "1.13.3"
   AWS_REGION: "us-east-2"
   EKS_CLUSTER_NAME: "archlens-cluster"
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'prod' }}
 
 jobs:
   # ── 01-foundation ──────────────────────────────────────────────────
@@ -444,8 +453,19 @@ jobs:
             --name ${{ env.EKS_CLUSTER_NAME }} \
             --region ${{ env.AWS_REGION }}
 
+      - name: Resolve CloudFront origin
+        run: |
+          CF_DOMAIN=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Comment=='ArchLens frontend (${ENVIRONMENT})'].DomainName | [0]" \
+            --output text)
+          if [ -z "$CF_DOMAIN" ] || [ "$CF_DOMAIN" = "None" ]; then
+            echo "::error::CloudFront distribution 'ArchLens frontend (${ENVIRONMENT})' não encontrada. Rode o workspace 04-frontend primeiro."
+            exit 1
+          fi
+          echo "CLOUDFRONT_ORIGIN=https://${CF_DOMAIN}" >> "$GITHUB_ENV"
+
       - name: Apply Kong manifests
-        run: kubectl apply -f infra/k8s/ingress/kong-config.yaml
+        run: envsubst '${CLOUDFRONT_ORIGIN}' < infra/k8s/ingress/kong-config.yaml | kubectl apply -f -
 
       - name: Apply HPA manifests
         run: kubectl apply -f infra/k8s/hpa/

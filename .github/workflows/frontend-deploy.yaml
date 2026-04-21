@@ -1,0 +1,167 @@
+name: "Frontend: Build & Deploy"
+
+# ── Trigger: tag fe-v* ou manual ─────────────────────────────────────
+#   As chaves de build vêm 100% do AWS SSM Parameter Store, populado
+#   pelo Terraform workspace archlens-frontend. No GitHub Secrets só
+#   ficam as credenciais AWS (já compartilhadas com os outros workflows).
+on:
+  push:
+    tags:
+      - "fe-v*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment (usado no prefixo SSM /archlens/frontend/<env>)"
+        required: true
+        default: "prod"
+        type: choice
+        options:
+          - prod
+          - dev
+
+permissions:
+  id-token: write
+  contents: read
+
+# ── Controle de concorrência ─────────────────────────────────────────
+#   Impede que dois deploys do mesmo ambiente executem em paralelo —
+#   cada `aws s3 sync --delete` manipula o bucket, e execuções
+#   intercaladas corrompem o estado (index.html de uma release
+#   apontando para assets de outra). cancel-in-progress=false mantém
+#   o deploy em andamento e enfileira o próximo.
+concurrency:
+  group: frontend-deploy-${{ github.event.inputs.environment || 'prod' }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: "us-east-2"
+  NODE_VERSION: "24"
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'prod' }}
+
+jobs:
+  build-deploy:
+    name: "frontend"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Pull build-time config do SSM ──────────────────────────────
+      # fail-fast explícito: set -euo pipefail + validação por parâmetro.
+      # Sem isso, falha em aws ssm get-parameter dentro de $(...) é
+      # engolida pelo redirecionamento e o build publica bundle quebrado.
+      - name: Fetch frontend config from SSM
+        id: ssm
+        run: |
+          set -euo pipefail
+          PREFIX="/archlens/frontend/${ENVIRONMENT}"
+
+          fetch() {
+            local key="$1"
+            local val
+            val=$(aws ssm get-parameter \
+                    --name "${PREFIX}/${key}" \
+                    --with-decryption \
+                    --query 'Parameter.Value' \
+                    --output text 2>&1) || {
+              echo "::error::Failed to read SSM parameter ${PREFIX}/${key}: ${val}" >&2
+              exit 1
+            }
+            if [[ -z "${val}" || "${val}" == "None" ]]; then
+              echo "::error::SSM parameter ${PREFIX}/${key} is empty" >&2
+              exit 1
+            fi
+            printf '%s' "${val}"
+          }
+
+          {
+            echo "VITE_KONG_BASE_URL=$(fetch api_gateway_url)"
+            echo "VITE_CLERK_PUBLISHABLE_KEY=$(fetch clerk_publishable_key)"
+            echo "S3_BUCKET=archlens-frontend-${ENVIRONMENT}"
+          } >> "$GITHUB_ENV"
+
+      # ID da distribuição lido do SSM (populado pelo Terraform) em vez
+      # de filtrado por Comment — o Comment pode ser editado manualmente
+      # no console e faz o workflow invalidar a distribuição errada.
+      - name: Resolve CloudFront distribution ID
+        run: |
+          set -euo pipefail
+          DIST_ID=$(aws ssm get-parameter \
+            --name "/archlens/frontend/${ENVIRONMENT}/cloudfront_distribution_id" \
+            --query 'Parameter.Value' --output text)
+          if [[ -z "${DIST_ID}" || "${DIST_ID}" == "None" ]]; then
+            echo "::error::Empty cloudfront_distribution_id in SSM" >&2
+            exit 1
+          fi
+          echo "CLOUDFRONT_DISTRIBUTION_ID=${DIST_ID}" >> "$GITHUB_ENV"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc -b --noEmit
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Sync immutable assets to S3
+        working-directory: frontend
+        run: |
+          aws s3 sync dist/ "s3://${S3_BUCKET}/" \
+            --delete \
+            --exclude "index.html" \
+            --exclude "*.map" \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Sync HTML with no-cache
+        working-directory: frontend
+        run: |
+          aws s3 cp dist/index.html "s3://${S3_BUCKET}/index.html" \
+            --cache-control "no-store,no-cache,must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+
+      - name: Invalidate CloudFront
+        id: invalidate
+        run: |
+          INV_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "/index.html" "/" \
+            --query 'Invalidation.Id' --output text)
+          echo "invalidation_id=$INV_ID" >> "$GITHUB_OUTPUT"
+
+      # Timeout explícito: o wait default (60 tentativas x 20s = 20min)
+      # pode travar o runner em situações de congestionamento do CloudFront.
+      - name: Wait for invalidation
+        timeout-minutes: 10
+        run: |
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --id "${{ steps.invalidate.outputs.invalidation_id }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Frontend deploy (${ENVIRONMENT})";
+            echo "- Bucket: \`${S3_BUCKET}\`";
+            echo "- Distribution: \`${CLOUDFRONT_DISTRIBUTION_ID}\`";
+            echo "- Invalidation: \`${{ steps.invalidate.outputs.invalidation_id }}\`";
+          } >> "$GITHUB_STEP_SUMMARY"

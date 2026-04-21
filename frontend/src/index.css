@@ -1,0 +1,20 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: "Geist", sans-serif;
+  background: #fff;
+  color: #0f172a;
+}
+
+button {
+  font-family: inherit;
+}
