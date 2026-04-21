@@ -455,13 +455,13 @@ jobs:
 
       - name: Resolve CloudFront origin
         run: |
-          CF_DOMAIN=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?Comment=='ArchLens frontend (${ENVIRONMENT})'].DomainName | [0]" \
-            --output text)
-          if [ -z "$CF_DOMAIN" ] || [ "$CF_DOMAIN" = "None" ]; then
-            echo "::error::CloudFront distribution 'ArchLens frontend (${ENVIRONMENT})' não encontrada. Rode o workspace 04-frontend primeiro."
-            exit 1
-          fi
+          set -euo pipefail
+          DIST_ID=$(aws ssm get-parameter \
+            --name "/archlens/frontend/${ENVIRONMENT}/cloudfront_distribution_id" \
+            --query 'Parameter.Value' --output text)
+          CF_DOMAIN=$(aws cloudfront get-distribution \
+            --id "$DIST_ID" \
+            --query 'Distribution.DomainName' --output text)
           echo "CLOUDFRONT_ORIGIN=https://${CF_DOMAIN}" >> "$GITHUB_ENV"
 
       - name: Apply Kong manifests
