@@ -23,8 +23,11 @@ metadata:
     kubernetes.io/ingress.class: "kong"
 plugin: cors
 config:
+  # Wildcard "*" é incompatível com credentials=true (cookies Clerk HttpOnly).
+  # ${CLOUDFRONT_ORIGIN} é resolvido em tempo de deploy pelo workflow
+  # infra-deploy.yaml (step "Resolve CloudFront origin") via envsubst.
   origins:
-    - "*"
+    - "${CLOUDFRONT_ORIGIN}"
   methods:
     - GET
     - POST
@@ -32,6 +35,10 @@ config:
   headers:
     - Content-Type
     - Authorization
+    - Cookie
+  exposed_headers:
+    - Set-Cookie
+  credentials: true
   max_age: 3600
 ---
 # ── KongPlugin: Request Size Limiting (global — 10MB) ────────────────
