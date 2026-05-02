@@ -143,6 +143,8 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: "table"
+          # CVEs aceitas com justificativa em services/<svc>/.trivyignore
+          trivyignores: services/${{ matrix.service }}/.trivyignore
 
       - name: Update kubeconfig
         if: matrix.enabled == 'true'
