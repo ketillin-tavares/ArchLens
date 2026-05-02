@@ -288,16 +288,27 @@ resource "kubernetes_deployment" "presidio_analyzer" {
             }
           }
 
+          # Startup probe: enquanto não passa, K8s ignora liveness/readiness.
+          # Permite cold start lento dos modelos spaCy sem ser morto.
+          # 30 falhas × 10s = até 5 min para subir.
+          startup_probe {
+            http_get {
+              path = "/health"
+              port = 3000
+            }
+            period_seconds    = 10
+            timeout_seconds   = 10
+            failure_threshold = 30
+          }
+
           liveness_probe {
             http_get {
               path = "/health"
               port = 3000
             }
-            # Modelos NLP grandes; default timeout=1s era apertado e causava CrashLoop.
-            initial_delay_seconds = 90
-            period_seconds        = 30
-            timeout_seconds       = 10
-            failure_threshold     = 3
+            period_seconds    = 60
+            timeout_seconds   = 15
+            failure_threshold = 3
           }
         }
       }
