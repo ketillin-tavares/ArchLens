@@ -29,5 +29,5 @@ locals {
   # no workspace 02-cluster e os IRSA roles acima só são efetivos depois.
   # O oidc_provider aqui é um placeholder; substituir pelo issuer real
   # obtido via: aws eks describe-cluster --name archlens-cluster --query "cluster.identity.oidc.issuer"
-  oidc_provider = "oidc.eks.${var.aws_region}.amazonaws.com/id/REPLACE_WITH_OIDC_ID"
+  oidc_provider = "oidc.eks.us-east-2.amazonaws.com/id/8B31A297F73AC76837681A545C1B92A3"
 }

@@ -50,6 +50,5 @@ resource "helm_release" "alb_controller" {
   depends_on = [
     module.eks,
     kubernetes_service_account.alb_controller,
-    aws_iam_openid_connect_provider.eks
   ]
 }

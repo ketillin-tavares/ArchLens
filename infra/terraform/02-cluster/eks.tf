@@ -11,6 +11,10 @@ module "eks" {
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
 
+  # Concede admin access (via EKS Access Entries) ao IAM identity que cria o cluster.
+  # Sem isso, o terraform runner não consegue criar recursos kubernetes_* (Unauthorized).
+  enable_cluster_creator_admin_permissions = true
+
   # Usar role IAM criado no workspace foundation
   iam_role_arn = local.cluster_role
 
