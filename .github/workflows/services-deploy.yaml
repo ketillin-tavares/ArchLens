@@ -113,7 +113,10 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_REPO: archlens/${{ matrix.service }}
-          IMAGE_TAG: ${{ github.ref_name }}
+          # Em push de tag (git tag v1.0.0): IMAGE_TAG = v1.0.0 (casa com Git Release).
+          # Em workflow_dispatch: IMAGE_TAG = dev-<run_number>, único por execução
+          # (evita conflito com ECR IMMUTABLE e nomes de branch com `/` inválidos em Docker tags).
+          IMAGE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('dev-{0}', github.run_number) }}
           DOCKER_BUILDKIT: "1"
         run: |
           IMAGE_URI="$ECR_REGISTRY/$IMAGE_REPO:$IMAGE_TAG"
