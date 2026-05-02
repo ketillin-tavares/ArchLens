@@ -1,0 +1,13 @@
+# Imagem oficial do LiteLLM para deploys non-root sem internet
+# (ex: K8s com run_as_user=1000 e ECR privado).
+# Docs: https://docs.litellm.ai/docs/proxy/deploy#non-root---without-internet-connection
+FROM docker.litellm.ai/berriai/litellm-non_root:main-stable
+
+USER root
+
+RUN python3 -m ensurepip --upgrade && \
+    python3 -m pip install --no-cache-dir \
+    presidio-analyzer \
+    presidio-anonymizer
+
+USER litellm
