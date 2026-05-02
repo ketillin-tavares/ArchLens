@@ -22,6 +22,16 @@ variable "api_gateway_url" {
   EOT
 }
 
+variable "platform_state_exists" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+    Se true, lê outputs do workspace archlens-platform (kong_url) via terraform_remote_state.
+    Deve ser false no primeiro deploy (antes do platform existir) e true depois.
+    Quando false, api_gateway_url precisa ser fornecido via var override (ou fica vazio).
+  EOT
+}
+
 variable "price_class" {
   type        = string
   default     = "PriceClass_100"
