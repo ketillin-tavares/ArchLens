@@ -364,6 +364,34 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Destroy também precisa dos arquivos do chart em disco para construir o grafo
+      - name: Pre-fetch ALB chart
+        working-directory: infra/terraform/02-cluster
+        run: |
+          set -e
+          rm -rf charts/aws-load-balancer-controller charts/metrics-server
+          mkdir -p charts
+          helm repo add eks https://aws.github.io/eks-charts || true
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ || true
+          for i in 1 2 3; do
+            helm repo update && \
+            helm pull eks/aws-load-balancer-controller \
+              --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && \
+            helm pull metrics-server/metrics-server \
+              --version "${METRICS_SERVER_CHART_VERSION}" \
+              --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/aws-load-balancer-controller
+          test -d charts/metrics-server
+
       - name: Terraform Init
         run: terraform init -input=false
 
