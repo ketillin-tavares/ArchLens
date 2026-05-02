@@ -44,13 +44,14 @@ provider "helm" {
 # ── Locals ────────────────────────────────────────────────────────────
 locals {
   # Outputs do workspace 01-foundation
-  vpc_id          = data.terraform_remote_state.foundation.outputs.vpc_id
-  private_subnets = data.terraform_remote_state.foundation.outputs.private_subnets
-  public_subnets  = data.terraform_remote_state.foundation.outputs.public_subnets
-  cluster_role    = data.terraform_remote_state.foundation.outputs.eks_cluster_role_arn
-  nodes_role      = data.terraform_remote_state.foundation.outputs.eks_nodes_role_arn
-  alb_role_arn    = data.terraform_remote_state.foundation.outputs.alb_controller_role_arn
-  nodes_sg_id     = data.terraform_remote_state.foundation.outputs.eks_nodes_sg_id
+  vpc_id           = data.terraform_remote_state.foundation.outputs.vpc_id
+  private_subnets  = data.terraform_remote_state.foundation.outputs.private_subnets
+  public_subnets   = data.terraform_remote_state.foundation.outputs.public_subnets
+  cluster_role     = data.terraform_remote_state.foundation.outputs.eks_cluster_role_arn
+  nodes_role       = data.terraform_remote_state.foundation.outputs.eks_nodes_role_arn
+  alb_role_arn     = data.terraform_remote_state.foundation.outputs.alb_controller_role_arn
+  ebs_csi_role_arn = data.terraform_remote_state.foundation.outputs.ebs_csi_driver_role_arn
+  nodes_sg_id      = data.terraform_remote_state.foundation.outputs.eks_nodes_sg_id
 
   common_tags = {
     Project     = "archlens"

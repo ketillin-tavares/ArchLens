@@ -187,6 +187,37 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
   role       = aws_iam_role.alb_controller.name
 }
 
+# ── IAM: EBS CSI Driver (IRSA) ────────────────────────────────────────
+# O EBS CSI Driver controller precisa de permissão para criar/anexar volumes EBS
+# para PersistentVolumes. Sem este IRSA o addon entra em CrashLoopBackOff.
+resource "aws_iam_role" "ebs_csi_driver" {
+  name = "archlens-ebs-csi-driver-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Principal = {
+        Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.oidc_provider}"
+      }
+      Condition = {
+        StringEquals = {
+          "${local.oidc_provider}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          "${local.oidc_provider}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver.name
+}
+
 # ── IAM: New Relic AWS API Polling ────────────────────────────────────
 # Permite que o New Relic colete métricas nativas dos serviços gerenciados
 # (RDS, S3, ALB, NAT Gateway, VPC) via AWS API polling.
