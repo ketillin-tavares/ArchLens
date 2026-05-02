@@ -462,7 +462,7 @@ resource "kubernetes_deployment" "litellm" {
           }
           env {
             name  = "LITELLM_DATABASE_URL"
-            value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db"
+            value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db?sslmode=require"
           }
           env {
             name  = "STORE_MODEL_IN_DB"
