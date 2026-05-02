@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "services" {
-  for_each = toset(["upload-service", "processing-service", "report-service"])
+  for_each = toset(["upload-service", "processing-service", "report-service", "litellm-gateway"])
 
   name                 = "archlens/${each.key}"
   image_tag_mutability = "IMMUTABLE"

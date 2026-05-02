@@ -444,13 +444,11 @@ resource "kubernetes_deployment" "litellm" {
             allow_privilege_escalation = false
           }
 
-          # Instalar guardrails Python deps em runtime (presidio) e carregar
-          # secrets do Vault. O base image nao tem esses pacotes — equivalente
-          # ao pip install do Dockerfile custom em gateways/litellm/Dockerfile.
+          # presidio-analyzer e presidio-anonymizer já vêm pré-instalados na
+          # imagem custom (gateways/litellm/Dockerfile pushada para ECR).
           command = ["/bin/sh", "-c"]
           args = [
             <<-CMD
-              python3 -m pip install --no-cache-dir presidio-analyzer presidio-anonymizer && \
               { [ -f /vault/secrets/litellm ] && . /vault/secrets/litellm; } ; \
               litellm --config /app/config.yaml --host 0.0.0.0 --port 4000
             CMD
