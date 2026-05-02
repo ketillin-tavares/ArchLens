@@ -116,7 +116,10 @@ jobs:
     name: "01-foundation (apply)"
     runs-on: ubuntu-latest
     needs: [foundation-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.foundation-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/01-foundation
@@ -272,7 +275,10 @@ jobs:
     name: "02-cluster (apply)"
     runs-on: ubuntu-latest
     needs: [cluster-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.cluster-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/02-cluster
@@ -429,7 +435,10 @@ jobs:
     name: "04-frontend (apply)"
     runs-on: ubuntu-latest
     needs: [frontend-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.frontend-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/04-frontend
@@ -554,7 +563,10 @@ jobs:
     name: "03-platform (apply)"
     runs-on: ubuntu-latest
     needs: [platform-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.platform-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/03-platform
