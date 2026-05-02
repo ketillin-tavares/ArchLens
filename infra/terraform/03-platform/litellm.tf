@@ -448,11 +448,15 @@ resource "kubernetes_deployment" "litellm" {
           args = [
             <<-CMD
               pip install --no-cache-dir presidio-analyzer presidio-anonymizer && \
-              source /vault/secrets/litellm && \
+              { [ -f /vault/secrets/litellm ] && . /vault/secrets/litellm; } ; \
               litellm --config /app/config.yaml --host 0.0.0.0 --port 4000
             CMD
           ]
 
+          env {
+            name  = "HOME"
+            value = "/tmp"
+          }
           env {
             name  = "LITELLM_DATABASE_URL"
             value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db"
