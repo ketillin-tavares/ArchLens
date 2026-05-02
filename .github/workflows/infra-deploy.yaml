@@ -24,6 +24,7 @@ on:
           - 01-foundation
           - 02-cluster
           - 03-platform
+          - 04-frontend
       environment:
         description: "Environment (usado p/ descobrir a distribuição CloudFront no step Kong)"
         required: true
@@ -303,15 +304,142 @@ jobs:
       - name: Terraform Destroy
         run: terraform destroy -auto-approve -input=false
 
-  # ── 03-platform ────────────────────────────────────────────────────
-  platform-plan:
-    name: "03-platform (plan)"
+  # ── 04-frontend ────────────────────────────────────────────────────
+  # Roda ANTES do 03-platform (workspace: all) porque o job k8s-manifests
+  # lê cloudfront_distribution_id do SSM — parâmetro criado por este workspace.
+  frontend-plan:
+    name: "04-frontend (plan)"
     runs-on: ubuntu-latest
     needs: [cluster-apply]
     if: >-
       always() &&
       github.event.inputs.action != 'destroy' &&
       (needs.cluster-apply.result == 'success' || needs.cluster-apply.result == 'skipped') &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '04-frontend' ||
+       github.event_name == 'push')
+    defaults:
+      run:
+        working-directory: infra/terraform/04-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/04-frontend/.terraform/providers
+          key: tf-frontend-${{ runner.os }}-${{ hashFiles('infra/terraform/04-frontend/.terraform.lock.hcl') }}
+          restore-keys: tf-frontend-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to summary
+        run: |
+          echo '### 04-frontend — Terraform Plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -50 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-frontend
+          path: infra/terraform/04-frontend/tfplan
+          retention-days: 1
+
+  frontend-apply:
+    name: "04-frontend (apply)"
+    runs-on: ubuntu-latest
+    needs: [frontend-plan]
+    if: github.event.inputs.action == 'apply'
+    defaults:
+      run:
+        working-directory: infra/terraform/04-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/04-frontend/.terraform/providers
+          key: tf-frontend-${{ runner.os }}-${{ hashFiles('infra/terraform/04-frontend/.terraform.lock.hcl') }}
+          restore-keys: tf-frontend-${{ runner.os }}-
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-frontend
+          path: infra/terraform/04-frontend
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false tfplan
+
+  frontend-destroy:
+    name: "04-frontend (destroy)"
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.inputs.action == 'destroy' &&
+      (github.event.inputs.workspace == 'all' ||
+       github.event.inputs.workspace == '04-frontend')
+    defaults:
+      run:
+        working-directory: infra/terraform/04-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
+
+  # ── 03-platform ────────────────────────────────────────────────────
+  platform-plan:
+    name: "03-platform (plan)"
+    runs-on: ubuntu-latest
+    needs: [cluster-apply, frontend-apply]
+    if: >-
+      always() &&
+      github.event.inputs.action != 'destroy' &&
+      (needs.cluster-apply.result == 'success' || needs.cluster-apply.result == 'skipped') &&
+      (needs.frontend-apply.result == 'success' || needs.frontend-apply.result == 'skipped') &&
       (github.event.inputs.workspace == 'all' ||
        github.event.inputs.workspace == '03-platform' ||
        github.event_name == 'push')
