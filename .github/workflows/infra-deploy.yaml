@@ -51,6 +51,8 @@ env:
   AWS_REGION: "us-east-2"
   EKS_CLUSTER_NAME: "archlens-cluster"
   ENVIRONMENT: ${{ github.event.inputs.environment || 'prod' }}
+  # Manter em sync com variables.tf default em 02-cluster
+  ALB_CHART_VERSION: "1.7.1"
 
 jobs:
   # ── 01-foundation ──────────────────────────────────────────────────
@@ -210,6 +212,30 @@ jobs:
           key: tf-cluster-${{ runner.os }}-${{ hashFiles('infra/terraform/02-cluster/.terraform.lock.hcl') }}
           restore-keys: tf-cluster-${{ runner.os }}-
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Pre-fetch local do chart ALB para evitar fetch remoto durante terraform
+      # (aws.github.io/eks-charts apresentou conexões instáveis no runner)
+      - name: Pre-fetch ALB chart
+        working-directory: infra/terraform/02-cluster
+        run: |
+          set -e
+          rm -rf charts/aws-load-balancer-controller
+          mkdir -p charts
+          for i in 1 2 3; do
+            helm repo add eks https://aws.github.io/eks-charts && \
+            helm repo update && \
+            helm pull eks/aws-load-balancer-controller \
+              --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/aws-load-balancer-controller
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
@@ -261,6 +287,29 @@ jobs:
           path: infra/terraform/02-cluster/.terraform/providers
           key: tf-cluster-${{ runner.os }}-${{ hashFiles('infra/terraform/02-cluster/.terraform.lock.hcl') }}
           restore-keys: tf-cluster-${{ runner.os }}-
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Apply precisa dos arquivos do chart em disco (não vão no tfplan artifact)
+      - name: Pre-fetch ALB chart
+        working-directory: infra/terraform/02-cluster
+        run: |
+          set -e
+          rm -rf charts/aws-load-balancer-controller
+          mkdir -p charts
+          for i in 1 2 3; do
+            helm repo add eks https://aws.github.io/eks-charts && \
+            helm repo update && \
+            helm pull eks/aws-load-balancer-controller \
+              --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/aws-load-balancer-controller
 
       - name: Terraform Init
         run: terraform init -input=false

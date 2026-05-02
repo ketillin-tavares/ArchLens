@@ -19,11 +19,10 @@ resource "kubernetes_service_account" "alb_controller" {
 }
 
 resource "helm_release" "alb_controller" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
-  version    = var.alb_controller_chart_version
+  name      = "aws-load-balancer-controller"
+  chart     = "${path.module}/charts/aws-load-balancer-controller"
+  namespace = "kube-system"
+  version   = var.alb_controller_chart_version
 
   set = [
     {

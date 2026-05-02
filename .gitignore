@@ -224,6 +224,7 @@ docs/newrelic/.alerts_state.json
 *.tfplan
 override.tf
 override.tf.json
+infra/terraform/02-cluster/charts/
 
 # Claude
 .claude/
