@@ -231,6 +231,7 @@ resource "kubernetes_job" "litellm_db_bootstrap" {
               set -e
               psql -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='$LITELLM_DB_USER'" | grep -q 1 || \
                 psql -d postgres -c "CREATE USER $LITELLM_DB_USER WITH PASSWORD '$LITELLM_DB_PASS';"
+              psql -d postgres -c "GRANT $LITELLM_DB_USER TO CURRENT_USER;"
               psql -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='litellm_db'" | grep -q 1 || \
                 psql -d postgres -c "CREATE DATABASE litellm_db OWNER $LITELLM_DB_USER;"
               psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE litellm_db TO $LITELLM_DB_USER;"
