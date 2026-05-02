@@ -117,7 +117,9 @@ jobs:
 
       - name: Typecheck
         working-directory: frontend
-        run: npx tsc -b --noEmit
+        # `tsc -b --noEmit` conflita com `composite: true` em tsconfig.node.json (TS6310).
+        # Roda em modo single-project (sem -b), reusando o noEmit já declarado no tsconfig.json.
+        run: npx tsc --noEmit
 
       - name: Build
         working-directory: frontend

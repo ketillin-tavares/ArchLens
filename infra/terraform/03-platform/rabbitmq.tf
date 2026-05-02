@@ -68,6 +68,17 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
       # Usuario "archlens" e criado pelo chart Bitnami via auth.username/auth.password.
       # Nao declarar aqui para evitar sobrescrever com password_hash vazio.
       vhosts = [{ name = "/" }]
+      # Permissoes do user archlens no vhost /. Sem isto o chart nao concede
+      # permissao automatica e o broker fecha conexoes apos auth (Connection.Close).
+      permissions = [
+        {
+          user      = "archlens"
+          vhost     = "/"
+          configure = ".*"
+          write     = ".*"
+          read      = ".*"
+        }
+      ]
       exchanges = [
         {
           name        = "analise.events"

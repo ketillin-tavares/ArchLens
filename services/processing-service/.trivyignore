@@ -1,0 +1,13 @@
+# Vulnerabilidades aceitas com justificativa.
+# Revisar a cada release dos pacotes upstream.
+
+# pydantic-ai 1.38.0 — não atualizável devido a conflito de dependências (peer ranges).
+# Risco mitigado: serviço roda em VPC privada, sem ingress direto, e não processa
+# URLs/paths arbitrários de usuários externos (apenas referências S3 controladas).
+CVE-2026-25580  # SSRF
+CVE-2026-25640  # Path traversal / RCE
+
+# quinn-proto 0.11.12 — embutido no Rust bridge do temporalio (transitiva).
+# Risco mitigado: o serviço não expõe QUIC para a internet; comunicação Temporal
+# é interna ao cluster.
+CVE-2026-31812  # QUIC initial packet DoS
