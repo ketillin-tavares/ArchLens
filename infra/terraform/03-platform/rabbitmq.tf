@@ -9,6 +9,14 @@ resource "helm_release" "rabbitmq" {
   namespace = data.kubernetes_namespace.archlens.metadata[0].name
 
   set = [
+    # Override para registry legacy do Bitnami — desde Aug/2025 a catalog padrão
+    # do Bitnami exige assinatura paga. As mesmas imagens públicas migraram para
+    # bitnamilegacy/* (não são inseguras, só fora do catálogo "secure" pago).
+    # Docs: https://github.com/bitnami/charts/issues/35164
+    { name = "global.security.allowInsecureImages", value = "true" },
+    { name = "image.registry", value = "docker.io" },
+    { name = "image.repository", value = "bitnamilegacy/rabbitmq" },
+
     # Credenciais (usuário)
     { name = "auth.username", value = "archlens" },
 
