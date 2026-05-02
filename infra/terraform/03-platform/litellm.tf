@@ -211,6 +211,11 @@ resource "kubernetes_job" "litellm_db_bootstrap" {
             name  = "PGPASSWORD"
             value = var.db_password
           }
+          # RDS instance está configurado com rds.force_ssl=1; conexões plain TCP são rejeitadas
+          env {
+            name  = "PGSSLMODE"
+            value = "require"
+          }
           env {
             name  = "LITELLM_DB_USER"
             value = "litellm_user"

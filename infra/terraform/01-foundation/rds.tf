@@ -14,6 +14,11 @@ module "rds" {
   password = var.db_password
   port     = 5432
 
+  # Desabilita gerenciamento via AWS Secrets Manager — usar var.db_password direto.
+  # Default do módulo v6+ é true, o que faz a AWS gerar senha aleatória e ignorar
+  # o atributo `password`. Setando false, a senha passada é a efetiva.
+  manage_master_user_password = false
+
   vpc_security_group_ids = [aws_security_group.rds.id]
   create_db_subnet_group = true
   subnet_ids             = module.vpc.private_subnets
