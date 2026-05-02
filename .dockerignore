@@ -91,3 +91,6 @@ venv/
 # Claude
 .claude/
 CLAUDE.md
+
+# Vault
+vault-init.json

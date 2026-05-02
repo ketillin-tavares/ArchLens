@@ -231,3 +231,6 @@ infra/terraform/03-platform/charts/
 .claude/
 CLAUDE.md
 /prompts/
+
+# Vault
+vault-init.json
