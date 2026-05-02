@@ -45,7 +45,7 @@ variable "db_password" {
 
 variable "rds_engine_version" {
   type        = string
-  default     = "16.2"
+  default     = "18.3"
   description = "Versão do PostgreSQL para a instância RDS"
 }
 
