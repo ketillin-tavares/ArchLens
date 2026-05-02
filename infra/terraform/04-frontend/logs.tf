@@ -115,6 +115,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
 #  destino S3 é autorizado via bucket policy acima.
 # ══════════════════════════════════════════════════════════════════════
 resource "aws_cloudwatch_log_delivery_source" "frontend" {
+  provider     = aws.us_east_1
   count        = var.enable_access_logs ? 1 : 0
   name         = "archlens-frontend-${var.environment}-cf-source"
   resource_arn = aws_cloudfront_distribution.frontend.arn
@@ -122,6 +123,7 @@ resource "aws_cloudwatch_log_delivery_source" "frontend" {
 }
 
 resource "aws_cloudwatch_log_delivery_destination" "frontend" {
+  provider      = aws.us_east_1
   count         = var.enable_access_logs ? 1 : 0
   name          = "archlens-frontend-${var.environment}-cf-dest"
   output_format = "plain"
@@ -132,6 +134,7 @@ resource "aws_cloudwatch_log_delivery_destination" "frontend" {
 }
 
 resource "aws_cloudwatch_log_delivery" "frontend" {
+  provider                 = aws.us_east_1
   count                    = var.enable_access_logs ? 1 : 0
   delivery_source_name     = aws_cloudwatch_log_delivery_source.frontend[0].name
   delivery_destination_arn = aws_cloudwatch_log_delivery_destination.frontend[0].arn

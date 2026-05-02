@@ -21,6 +21,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+# CloudFront é global mas o delivery de logs (vended logs API) só roda em us-east-1.
+# Usado nos recursos aws_cloudwatch_log_delivery_* via provider alias.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
 # ── Remote state do workspace platform ───────────────────────────────
 # Fonte da verdade para o URL do Kong API Gateway (Load Balancer criado
 # pelo Ingress Controller). Evita drift silencioso: quando a plataforma
