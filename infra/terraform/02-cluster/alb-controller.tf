@@ -16,6 +16,9 @@ resource "kubernetes_service_account" "alb_controller" {
       "app.kubernetes.io/name"      = "aws-load-balancer-controller"
     }
   }
+
+  # Aguarda access entries do módulo EKS antes de chamar API do cluster
+  depends_on = [module.eks]
 }
 
 resource "helm_release" "alb_controller" {
