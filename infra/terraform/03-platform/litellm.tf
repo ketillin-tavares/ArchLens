@@ -450,7 +450,7 @@ resource "kubernetes_deployment" "litellm" {
           command = ["/bin/sh", "-c"]
           args = [
             <<-CMD
-              pip install --no-cache-dir presidio-analyzer presidio-anonymizer && \
+              python3 -m pip install --no-cache-dir presidio-analyzer presidio-anonymizer && \
               { [ -f /vault/secrets/litellm ] && . /vault/secrets/litellm; } ; \
               litellm --config /app/config.yaml --host 0.0.0.0 --port 4000
             CMD
