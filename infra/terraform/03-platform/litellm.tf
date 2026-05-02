@@ -211,6 +211,11 @@ resource "kubernetes_job" "litellm_db_bootstrap" {
             name  = "PGPASSWORD"
             value = var.db_password
           }
+          # RDS instance está configurado com rds.force_ssl=1; conexões plain TCP são rejeitadas
+          env {
+            name  = "PGSSLMODE"
+            value = "require"
+          }
           env {
             name  = "LITELLM_DB_USER"
             value = "litellm_user"
@@ -226,6 +231,7 @@ resource "kubernetes_job" "litellm_db_bootstrap" {
               set -e
               psql -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='$LITELLM_DB_USER'" | grep -q 1 || \
                 psql -d postgres -c "CREATE USER $LITELLM_DB_USER WITH PASSWORD '$LITELLM_DB_PASS';"
+              psql -d postgres -c "GRANT $LITELLM_DB_USER TO CURRENT_USER;"
               psql -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='litellm_db'" | grep -q 1 || \
                 psql -d postgres -c "CREATE DATABASE litellm_db OWNER $LITELLM_DB_USER;"
               psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE litellm_db TO $LITELLM_DB_USER;"
@@ -287,8 +293,11 @@ resource "kubernetes_deployment" "presidio_analyzer" {
               path = "/health"
               port = 3000
             }
-            initial_delay_seconds = 60
+            # Modelos NLP grandes; default timeout=1s era apertado e causava CrashLoop.
+            initial_delay_seconds = 90
             period_seconds        = 30
+            timeout_seconds       = 10
+            failure_threshold     = 3
           }
         }
       }
@@ -435,21 +444,30 @@ resource "kubernetes_deployment" "litellm" {
             allow_privilege_escalation = false
           }
 
-          # Instalar guardrails Python deps em runtime (presidio) e carregar
-          # secrets do Vault. O base image nao tem esses pacotes — equivalente
-          # ao pip install do Dockerfile custom em gateways/litellm/Dockerfile.
+          # presidio-analyzer e presidio-anonymizer já vêm pré-instalados na
+          # imagem custom (gateways/litellm/Dockerfile pushada para ECR).
           command = ["/bin/sh", "-c"]
           args = [
             <<-CMD
-              pip install --no-cache-dir presidio-analyzer presidio-anonymizer && \
-              source /vault/secrets/litellm && \
+              { [ -f /vault/secrets/litellm ] && . /vault/secrets/litellm; } ; \
               litellm --config /app/config.yaml --host 0.0.0.0 --port 4000
             CMD
           ]
 
           env {
+            name  = "HOME"
+            value = "/tmp"
+          }
+          # Diretório gravável para baseline diff dos migrations Prisma.
+          # Sem isso, o post-migration sanity check falha em /usr/lib/.../migrations/
+          # e o Python prisma client não consegue inicializar o query engine.
+          env {
+            name  = "LITELLM_MIGRATION_DIR"
+            value = "/tmp/litellm-migrations"
+          }
+          env {
             name  = "LITELLM_DATABASE_URL"
-            value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db"
+            value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db?sslmode=require"
           }
           env {
             name  = "STORE_MODEL_IN_DB"
@@ -484,12 +502,13 @@ resource "kubernetes_deployment" "litellm" {
 
           resources {
             requests = {
-              memory = "512Mi"
+              memory = "768Mi"
               cpu    = "250m"
             }
             limits = {
-              memory = "1536Mi"
-              cpu    = "500m"
+              # LiteLLM proxy + Prisma + presidio packages (pip runtime) + spaCy models passam de 1.5Gi.
+              memory = "2560Mi"
+              cpu    = "1000m"
             }
           }
 

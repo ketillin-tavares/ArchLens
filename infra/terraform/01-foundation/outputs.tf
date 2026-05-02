@@ -70,6 +70,11 @@ output "alb_controller_role_arn" {
   description = "ARN do IRSA role do AWS Load Balancer Controller"
 }
 
+output "ebs_csi_driver_role_arn" {
+  value       = aws_iam_role.ebs_csi_driver.arn
+  description = "ARN do IRSA role do EBS CSI Driver — consumido pelo addon no workspace 02-cluster"
+}
+
 # ── Security Groups ───────────────────────────────────────────────────
 output "eks_nodes_sg_id" {
   value       = aws_security_group.eks_nodes.id

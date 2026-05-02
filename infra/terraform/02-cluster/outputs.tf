@@ -21,7 +21,7 @@ output "cluster_oidc_issuer_url" {
 }
 
 output "oidc_provider_arn" {
-  value       = aws_iam_openid_connect_provider.eks.arn
+  value       = module.eks.oidc_provider_arn
   description = "ARN do OIDC provider — referenciado nas trust policies dos IRSA roles"
 }
 

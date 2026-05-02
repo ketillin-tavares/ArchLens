@@ -20,6 +20,9 @@ resource "aws_ssm_parameter" "clerk_publishable_key" {
 }
 
 resource "aws_ssm_parameter" "api_gateway_url" {
+  # Só cria o parâmetro quando há valor — SSM rejeita String vazia.
+  # No primeiro deploy (sem platform), pulamos; será criado quando platform_state_exists=true.
+  count       = local.api_gateway_url != "" ? 1 : 0
   name        = "${local.ssm_prefix}/api_gateway_url"
   description = "URL pública do Kong (esquema+host) — injetada no bundle como VITE_KONG_BASE_URL"
   type        = "String"

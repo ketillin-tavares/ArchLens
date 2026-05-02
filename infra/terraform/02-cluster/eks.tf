@@ -11,6 +11,10 @@ module "eks" {
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
 
+  # Concede admin access (via EKS Access Entries) ao IAM identity que cria o cluster.
+  # Sem isso, o terraform runner não consegue criar recursos kubernetes_* (Unauthorized).
+  enable_cluster_creator_admin_permissions = true
+
   # Usar role IAM criado no workspace foundation
   iam_role_arn = local.cluster_role
 
@@ -20,7 +24,16 @@ module "eks" {
     kube-proxy = { most_recent = true }
     vpc-cni    = { most_recent = true }
     # EBS CSI driver — necessário para PVCs (Vault precisa de storage)
-    aws-ebs-csi-driver = { most_recent = true }
+    # IRSA role criado no workspace 01-foundation (AmazonEBSCSIDriverPolicy)
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = local.ebs_csi_role_arn
+      timeouts = {
+        create = "8m"
+        update = "8m"
+        delete = "8m"
+      }
+    }
   }
 
   eks_managed_node_groups = {

@@ -54,6 +54,11 @@ env:
   # Manter em sync com variables.tf defaults em 02-cluster
   ALB_CHART_VERSION: "1.7.1"
   METRICS_SERVER_CHART_VERSION: "3.12.1"
+  # Manter em sync com variables.tf defaults em 03-platform
+  VAULT_CHART_VERSION: "0.32.0"
+  RABBITMQ_CHART_VERSION: "16.0.14"
+  KONG_CHART_VERSION: "0.24.0"
+  NEWRELIC_CHART_VERSION: "7.0.6"
 
 jobs:
   # ── 01-foundation ──────────────────────────────────────────────────
@@ -116,7 +121,10 @@ jobs:
     name: "01-foundation (apply)"
     runs-on: ubuntu-latest
     needs: [foundation-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.foundation-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/01-foundation
@@ -272,7 +280,10 @@ jobs:
     name: "02-cluster (apply)"
     runs-on: ubuntu-latest
     needs: [cluster-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.cluster-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/02-cluster
@@ -358,6 +369,34 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Destroy também precisa dos arquivos do chart em disco para construir o grafo
+      - name: Pre-fetch ALB chart
+        working-directory: infra/terraform/02-cluster
+        run: |
+          set -e
+          rm -rf charts/aws-load-balancer-controller charts/metrics-server
+          mkdir -p charts
+          helm repo add eks https://aws.github.io/eks-charts || true
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ || true
+          for i in 1 2 3; do
+            helm repo update && \
+            helm pull eks/aws-load-balancer-controller \
+              --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && \
+            helm pull metrics-server/metrics-server \
+              --version "${METRICS_SERVER_CHART_VERSION}" \
+              --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/aws-load-balancer-controller
+          test -d charts/metrics-server
+
       - name: Terraform Init
         run: terraform init -input=false
 
@@ -429,7 +468,10 @@ jobs:
     name: "04-frontend (apply)"
     runs-on: ubuntu-latest
     needs: [frontend-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.frontend-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/04-frontend
@@ -524,6 +566,37 @@ jobs:
           key: tf-platform-${{ runner.os }}-${{ hashFiles('infra/terraform/03-platform/.terraform.lock.hcl') }}
           restore-keys: tf-platform-${{ runner.os }}-
 
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Pre-fetch local dos charts (vault, rabbitmq, kong, newrelic) para evitar
+      # falhas de rede com aws.github.io / kubernetes-sigs.github.io / helm-charts.newrelic.com
+      - name: Pre-fetch platform charts
+        working-directory: infra/terraform/03-platform
+        run: |
+          set -e
+          rm -rf charts/vault charts/rabbitmq charts/ingress charts/nri-bundle
+          mkdir -p charts
+          helm repo add hashicorp https://helm.releases.hashicorp.com || true
+          helm repo add bitnami https://charts.bitnami.com/bitnami || true
+          helm repo add kong https://charts.konghq.com || true
+          helm repo add newrelic https://helm-charts.newrelic.com || true
+          for i in 1 2 3; do
+            helm repo update && \
+            helm pull hashicorp/vault --version "${VAULT_CHART_VERSION}" --untar -d charts/ && \
+            helm pull bitnami/rabbitmq --version "${RABBITMQ_CHART_VERSION}" --untar -d charts/ && \
+            helm pull kong/ingress --version "${KONG_CHART_VERSION}" --untar -d charts/ && \
+            helm pull newrelic/nri-bundle --version "${NEWRELIC_CHART_VERSION}" --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/vault
+          test -d charts/rabbitmq
+          test -d charts/ingress
+          test -d charts/nri-bundle
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
@@ -554,7 +627,10 @@ jobs:
     name: "03-platform (apply)"
     runs-on: ubuntu-latest
     needs: [platform-plan]
-    if: github.event.inputs.action == 'apply'
+    if: >-
+      always() &&
+      needs.platform-plan.result == 'success' &&
+      github.event.inputs.action == 'apply'
     defaults:
       run:
         working-directory: infra/terraform/03-platform
@@ -575,6 +651,36 @@ jobs:
           path: infra/terraform/03-platform/.terraform/providers
           key: tf-platform-${{ runner.os }}-${{ hashFiles('infra/terraform/03-platform/.terraform.lock.hcl') }}
           restore-keys: tf-platform-${{ runner.os }}-
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Apply precisa dos arquivos dos charts em disco (não vão no tfplan artifact)
+      - name: Pre-fetch platform charts
+        working-directory: infra/terraform/03-platform
+        run: |
+          set -e
+          rm -rf charts/vault charts/rabbitmq charts/ingress charts/nri-bundle
+          mkdir -p charts
+          helm repo add hashicorp https://helm.releases.hashicorp.com || true
+          helm repo add bitnami https://charts.bitnami.com/bitnami || true
+          helm repo add kong https://charts.konghq.com || true
+          helm repo add newrelic https://helm-charts.newrelic.com || true
+          for i in 1 2 3; do
+            helm repo update && \
+            helm pull hashicorp/vault --version "${VAULT_CHART_VERSION}" --untar -d charts/ && \
+            helm pull bitnami/rabbitmq --version "${RABBITMQ_CHART_VERSION}" --untar -d charts/ && \
+            helm pull kong/ingress --version "${KONG_CHART_VERSION}" --untar -d charts/ && \
+            helm pull newrelic/nri-bundle --version "${NEWRELIC_CHART_VERSION}" --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/vault
+          test -d charts/rabbitmq
+          test -d charts/ingress
+          test -d charts/nri-bundle
 
       - name: Terraform Init
         run: terraform init -input=false
@@ -608,6 +714,36 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      # Destroy também precisa dos arquivos dos charts em disco para construir o grafo
+      - name: Pre-fetch platform charts
+        working-directory: infra/terraform/03-platform
+        run: |
+          set -e
+          rm -rf charts/vault charts/rabbitmq charts/ingress charts/nri-bundle
+          mkdir -p charts
+          helm repo add hashicorp https://helm.releases.hashicorp.com || true
+          helm repo add bitnami https://charts.bitnami.com/bitnami || true
+          helm repo add kong https://charts.konghq.com || true
+          helm repo add newrelic https://helm-charts.newrelic.com || true
+          for i in 1 2 3; do
+            helm repo update && \
+            helm pull hashicorp/vault --version "${VAULT_CHART_VERSION}" --untar -d charts/ && \
+            helm pull bitnami/rabbitmq --version "${RABBITMQ_CHART_VERSION}" --untar -d charts/ && \
+            helm pull kong/ingress --version "${KONG_CHART_VERSION}" --untar -d charts/ && \
+            helm pull newrelic/nri-bundle --version "${NEWRELIC_CHART_VERSION}" --untar -d charts/ && break
+            echo "Tentativa $i falhou, aguardando 15s..."
+            sleep 15
+          done
+          test -d charts/vault
+          test -d charts/rabbitmq
+          test -d charts/ingress
+          test -d charts/nri-bundle
 
       - name: Terraform Init
         run: terraform init -input=false

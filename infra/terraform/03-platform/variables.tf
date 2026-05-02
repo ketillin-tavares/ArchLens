@@ -14,7 +14,7 @@ variable "environment" {
 # ── Vault ──────────────────────────────────────────────────────────────
 variable "vault_chart_version" {
   type        = string
-  default     = "0.27.0"
+  default     = "0.32.0"
   description = "Versão do Helm chart do HashiCorp Vault"
 }
 
@@ -39,7 +39,7 @@ variable "vault_service_type" {
 # ── RabbitMQ ───────────────────────────────────────────────────────────
 variable "rabbitmq_chart_version" {
   type        = string
-  default     = "12.12.1"
+  default     = "16.0.14"
   description = "Versão do Helm chart Bitnami do RabbitMQ"
 }
 
@@ -64,7 +64,7 @@ variable "rabbitmq_storage_size" {
 # ── Kong ───────────────────────────────────────────────────────────────
 variable "kong_chart_version" {
   type        = string
-  default     = "0.4.3"
+  default     = "0.24.0"
   description = "Versão do Helm chart do Kong Ingress Controller"
 }
 
@@ -90,7 +90,7 @@ variable "newrelic_license_key" {
 
 variable "newrelic_chart_version" {
   type        = string
-  default     = "7.0.2"
+  default     = "7.0.6"
   description = "Versão do Helm chart nri-bundle do New Relic"
 }
 
