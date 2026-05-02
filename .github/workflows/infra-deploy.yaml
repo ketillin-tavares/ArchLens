@@ -51,8 +51,9 @@ env:
   AWS_REGION: "us-east-2"
   EKS_CLUSTER_NAME: "archlens-cluster"
   ENVIRONMENT: ${{ github.event.inputs.environment || 'prod' }}
-  # Manter em sync com variables.tf default em 02-cluster
+  # Manter em sync com variables.tf defaults em 02-cluster
   ALB_CHART_VERSION: "1.7.1"
+  METRICS_SERVER_CHART_VERSION: "3.12.1"
 
 jobs:
   # ── 01-foundation ──────────────────────────────────────────────────
@@ -223,18 +224,23 @@ jobs:
         working-directory: infra/terraform/02-cluster
         run: |
           set -e
-          rm -rf charts/aws-load-balancer-controller
+          rm -rf charts/aws-load-balancer-controller charts/metrics-server
           mkdir -p charts
+          helm repo add eks https://aws.github.io/eks-charts || true
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ || true
           for i in 1 2 3; do
-            helm repo add eks https://aws.github.io/eks-charts && \
             helm repo update && \
             helm pull eks/aws-load-balancer-controller \
               --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && \
+            helm pull metrics-server/metrics-server \
+              --version "${METRICS_SERVER_CHART_VERSION}" \
               --untar -d charts/ && break
             echo "Tentativa $i falhou, aguardando 15s..."
             sleep 15
           done
           test -d charts/aws-load-balancer-controller
+          test -d charts/metrics-server
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
@@ -298,18 +304,23 @@ jobs:
         working-directory: infra/terraform/02-cluster
         run: |
           set -e
-          rm -rf charts/aws-load-balancer-controller
+          rm -rf charts/aws-load-balancer-controller charts/metrics-server
           mkdir -p charts
+          helm repo add eks https://aws.github.io/eks-charts || true
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ || true
           for i in 1 2 3; do
-            helm repo add eks https://aws.github.io/eks-charts && \
             helm repo update && \
             helm pull eks/aws-load-balancer-controller \
               --version "${ALB_CHART_VERSION}" \
+              --untar -d charts/ && \
+            helm pull metrics-server/metrics-server \
+              --version "${METRICS_SERVER_CHART_VERSION}" \
               --untar -d charts/ && break
             echo "Tentativa $i falhou, aguardando 15s..."
             sleep 15
           done
           test -d charts/aws-load-balancer-controller
+          test -d charts/metrics-server
 
       - name: Terraform Init
         run: terraform init -input=false
