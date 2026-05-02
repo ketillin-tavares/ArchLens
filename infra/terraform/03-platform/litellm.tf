@@ -293,8 +293,11 @@ resource "kubernetes_deployment" "presidio_analyzer" {
               path = "/health"
               port = 3000
             }
-            initial_delay_seconds = 60
+            # Modelos NLP grandes; default timeout=1s era apertado e causava CrashLoop.
+            initial_delay_seconds = 90
             period_seconds        = 30
+            timeout_seconds       = 10
+            failure_threshold     = 3
           }
         }
       }
@@ -494,12 +497,13 @@ resource "kubernetes_deployment" "litellm" {
 
           resources {
             requests = {
-              memory = "512Mi"
+              memory = "768Mi"
               cpu    = "250m"
             }
             limits = {
-              memory = "1536Mi"
-              cpu    = "500m"
+              # LiteLLM proxy + Prisma + presidio packages (pip runtime) + spaCy models passam de 1.5Gi.
+              memory = "2560Mi"
+              cpu    = "1000m"
             }
           }
 
