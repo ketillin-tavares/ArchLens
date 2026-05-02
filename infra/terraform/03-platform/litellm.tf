@@ -460,6 +460,13 @@ resource "kubernetes_deployment" "litellm" {
             name  = "HOME"
             value = "/tmp"
           }
+          # Diretório gravável para baseline diff dos migrations Prisma.
+          # Sem isso, o post-migration sanity check falha em /usr/lib/.../migrations/
+          # e o Python prisma client não consegue inicializar o query engine.
+          env {
+            name  = "LITELLM_MIGRATION_DIR"
+            value = "/tmp/litellm-migrations"
+          }
           env {
             name  = "LITELLM_DATABASE_URL"
             value = "postgresql://litellm_user:${var.litellm_db_password}@${local.rds_address}:5432/litellm_db?sslmode=require"
