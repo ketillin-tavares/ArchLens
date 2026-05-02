@@ -3,11 +3,10 @@
 # Exchange topic "analise.events" com filas e bindings pré-configurados
 # via definitions JSON carregado automaticamente na inicialização.
 resource "helm_release" "rabbitmq" {
-  name       = "rabbitmq"
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "rabbitmq"
-  version    = var.rabbitmq_chart_version
-  namespace  = data.kubernetes_namespace.archlens.metadata[0].name
+  name      = "rabbitmq"
+  chart     = "${path.module}/charts/rabbitmq"
+  version   = var.rabbitmq_chart_version
+  namespace = data.kubernetes_namespace.archlens.metadata[0].name
 
   set = [
     # Credenciais (usuário)

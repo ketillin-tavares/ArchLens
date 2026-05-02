@@ -2,11 +2,10 @@
 # HashiCorp Vault em modo standalone (persistente, requer init + unseal manual).
 # O Vault Agent Injector fica ativo para injetar secrets nos pods via anotações.
 resource "helm_release" "vault" {
-  name       = "vault"
-  repository = "https://helm.releases.hashicorp.com"
-  chart      = "vault"
-  version    = var.vault_chart_version
-  namespace  = data.kubernetes_namespace.archlens.metadata[0].name
+  name      = "vault"
+  chart     = "${path.module}/charts/vault"
+  version   = var.vault_chart_version
+  namespace = data.kubernetes_namespace.archlens.metadata[0].name
 
   set = [
     # Standalone mode: persistente, requer init + unseal manual

@@ -3,11 +3,10 @@
 # Plugins globais (rate-limiting, CORS, key-auth) são aplicados via
 # manifests K8s em infra/k8s/ingress/kong-config.yaml.
 resource "helm_release" "kong" {
-  name       = "kong"
-  repository = "https://charts.konghq.com"
-  chart      = "ingress"
-  version    = var.kong_chart_version
-  namespace  = data.kubernetes_namespace.archlens.metadata[0].name
+  name      = "kong"
+  chart     = "${path.module}/charts/ingress"
+  version   = var.kong_chart_version
+  namespace = data.kubernetes_namespace.archlens.metadata[0].name
 
   set = [
     # Proxy exposto externamente — endpoint público da API

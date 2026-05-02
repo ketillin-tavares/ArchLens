@@ -16,11 +16,10 @@ resource "kubernetes_namespace" "newrelic" {
 # kube-state-metrics, events, metadata injection, logging e Prometheus.
 # Docs: https://github.com/newrelic/helm-charts/tree/master/charts/nri-bundle
 resource "helm_release" "newrelic" {
-  name       = "newrelic-bundle"
-  repository = "https://helm-charts.newrelic.com"
-  chart      = "nri-bundle"
-  version    = var.newrelic_chart_version
-  namespace  = kubernetes_namespace.newrelic.metadata[0].name
+  name      = "newrelic-bundle"
+  chart     = "${path.module}/charts/nri-bundle"
+  version   = var.newrelic_chart_version
+  namespace = kubernetes_namespace.newrelic.metadata[0].name
 
   # Global — cluster e privileged
   set = [
