@@ -79,6 +79,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
           read      = ".*"
         }
       ]
+      # Espelha infra/scripts/rabbitmq/definitions.json (docker-compose local) — fonte de verdade.
       exchanges = [
         {
           name        = "analise.events"
@@ -89,9 +90,9 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
           arguments   = {}
         },
         {
-          name        = "analise.dlx"
+          name        = "analise.events.dlx"
           vhost       = "/"
-          type        = "direct"
+          type        = "topic"
           durable     = true
           auto_delete = false
           arguments   = {}
@@ -99,37 +100,51 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
       ]
       queues = [
         {
-          name        = "analise.processamento.queue"
+          name        = "processing-service.pipeline"
           vhost       = "/"
           durable     = true
           auto_delete = false
           arguments = {
-            "x-dead-letter-exchange"    = "analise.dlx"
-            "x-dead-letter-routing-key" = "analise.processamento.dead"
+            "x-dead-letter-exchange"    = "analise.events.dlx"
+            "x-dead-letter-routing-key" = "dlq.processamento"
           }
         },
         {
-          name        = "analise.relatorio.queue"
+          name        = "report-service.reports"
           vhost       = "/"
           durable     = true
           auto_delete = false
           arguments = {
-            "x-dead-letter-exchange"    = "analise.dlx"
-            "x-dead-letter-routing-key" = "analise.relatorio.dead"
+            "x-dead-letter-exchange"    = "analise.events.dlx"
+            "x-dead-letter-routing-key" = "dlq.relatorio"
           }
         },
         {
-          name        = "analise.status.queue"
+          name        = "upload-service.status-updates"
           vhost       = "/"
           durable     = true
           auto_delete = false
           arguments = {
-            "x-dead-letter-exchange"    = "analise.dlx"
-            "x-dead-letter-routing-key" = "analise.status.dead"
+            "x-dead-letter-exchange"    = "analise.events.dlx"
+            "x-dead-letter-routing-key" = "dlq.status"
           }
         },
         {
-          name        = "analise.dlq"
+          name        = "processing-service.pipeline.dlq"
+          vhost       = "/"
+          durable     = true
+          auto_delete = false
+          arguments   = {}
+        },
+        {
+          name        = "report-service.reports.dlq"
+          vhost       = "/"
+          durable     = true
+          auto_delete = false
+          arguments   = {}
+        },
+        {
+          name        = "upload-service.status-updates.dlq"
           vhost       = "/"
           durable     = true
           auto_delete = false
@@ -140,7 +155,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.processamento.queue"
+          destination      = "processing-service.pipeline"
           destination_type = "queue"
           routing_key      = "analise.diagrama.enviado"
           arguments        = {}
@@ -148,7 +163,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.relatorio.queue"
+          destination      = "report-service.reports"
           destination_type = "queue"
           routing_key      = "analise.processamento.concluida"
           arguments        = {}
@@ -156,7 +171,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.status.queue"
+          destination      = "upload-service.status-updates"
           destination_type = "queue"
           routing_key      = "analise.processamento.iniciado"
           arguments        = {}
@@ -164,7 +179,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.status.queue"
+          destination      = "upload-service.status-updates"
           destination_type = "queue"
           routing_key      = "analise.processamento.concluida"
           arguments        = {}
@@ -172,7 +187,7 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.status.queue"
+          destination      = "upload-service.status-updates"
           destination_type = "queue"
           routing_key      = "analise.processamento.falhou"
           arguments        = {}
@@ -180,9 +195,33 @@ resource "kubernetes_secret" "rabbitmq_definitions" {
         {
           source           = "analise.events"
           vhost            = "/"
-          destination      = "analise.status.queue"
+          destination      = "upload-service.status-updates"
           destination_type = "queue"
           routing_key      = "analise.relatorio.gerado"
+          arguments        = {}
+        },
+        {
+          source           = "analise.events.dlx"
+          vhost            = "/"
+          destination      = "processing-service.pipeline.dlq"
+          destination_type = "queue"
+          routing_key      = "dlq.processamento"
+          arguments        = {}
+        },
+        {
+          source           = "analise.events.dlx"
+          vhost            = "/"
+          destination      = "report-service.reports.dlq"
+          destination_type = "queue"
+          routing_key      = "dlq.relatorio"
+          arguments        = {}
+        },
+        {
+          source           = "analise.events.dlx"
+          vhost            = "/"
+          destination      = "upload-service.status-updates.dlq"
+          destination_type = "queue"
+          routing_key      = "dlq.status"
           arguments        = {}
         }
       ]
