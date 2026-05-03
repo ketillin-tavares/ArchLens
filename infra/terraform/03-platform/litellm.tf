@@ -479,6 +479,8 @@ resource "kubernetes_deployment" "litellm" {
         init_container {
           name  = "vault-agent"
           image = "hashicorp/vault:1.20.0"
+          # Bypass do entrypoint que tenta chown como root.
+          command = ["vault"]
           args = [
             "agent",
             "-config=/vault/config/agent.hcl",
