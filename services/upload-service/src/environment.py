@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -36,11 +38,18 @@ class RabbitMQSettings(BaseSettings):
 class S3Settings(BaseSettings):
     """Configurações de conexão com o S3/MinIO."""
 
+    _LOCAL_HOSTS: ClassVar[tuple[str, ...]] = ("localhost", "localstack", "127.0.0.1")
+
     endpoint_url: str = Field(default="http://localhost:4566", validation_alias="S3_ENDPOINT_URL")
     access_key_id: str = Field(default="test", validation_alias="AWS_ACCESS_KEY_ID")
     secret_access_key: str = Field(default="test", validation_alias="AWS_SECRET_ACCESS_KEY")
     bucket_name: str = Field(default="archlens-diagramas", validation_alias="S3_BUCKET_NAME")
     region_name: str = Field(default="us-east-1", validation_alias="AWS_REGION")
+
+    @property
+    def is_local(self) -> bool:
+        """True quando aponta para LocalStack/MinIO; False em S3 real (usa IRSA)."""
+        return any(host in self.endpoint_url for host in self._LOCAL_HOSTS)
 
 
 class AppSettings(BaseSettings):

@@ -142,6 +142,7 @@ spec:
             - |
               set -e
               [ -f /vault/secrets/app-env ] && . /vault/secrets/app-env
+              alembic upgrade head
               exec newrelic-admin run-program uvicorn src.main:app --host 0.0.0.0 --port 8001
           ports:
             - name: http
@@ -167,7 +168,7 @@ spec:
               port: 8001
             initialDelaySeconds: 30
             periodSeconds: 15
-            timeoutSeconds: 3
+            timeoutSeconds: 10
             failureThreshold: 3
           readinessProbe:
             httpGet:
@@ -175,7 +176,7 @@ spec:
               port: 8001
             initialDelaySeconds: 10
             periodSeconds: 5
-            timeoutSeconds: 3
+            timeoutSeconds: 10
             failureThreshold: 3
           securityContext:
             runAsNonRoot: true
