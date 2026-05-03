@@ -3,6 +3,8 @@
 # ══════════════════════════════════════════════════════════════════════
 #  Gera relatorios Markdown. Text-only (sem vision). Resources menores.
 #  Usa ServiceAccount `default` — nao precisa de IRSA (sem S3 write).
+#  Segredos via Vault Agent INIT CONTAINER manual (sem injector — bypass do
+#  bug do vault-k8s 1.7.x). Ver upload-service.yaml para racional completo.
 # ══════════════════════════════════════════════════════════════════════
 apiVersion: v1
 kind: ConfigMap
@@ -23,6 +25,49 @@ data:
   DEBUG: "false"
   LOG_LEVEL: "INFO"
   NRIA_DISPLAY_NAME: "report-service"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: report-service-vault-agent
+  namespace: archlens
+data:
+  agent.hcl: |
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "archlens-services"
+        }
+      }
+      sink "file" {
+        config = {
+          path = "/home/vault/.token"
+        }
+      }
+    }
+
+    vault {
+      address = "http://vault.archlens.svc.cluster.local:8200"
+    }
+
+    template {
+      destination = "/vault/secrets/app-env"
+      contents = <<EOH
+      {{- with secret "secret/data/archlens/report" -}}
+      export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
+      export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
+      export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
+      export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
+      export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
+      export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
+      export LLM_API_KEY="{{ .Data.data.LLM_API_KEY }}"
+      export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+      export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
+      export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+      {{- end }}
+      EOH
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -48,26 +93,41 @@ spec:
       labels:
         app: report-service
         project: archlens
-      annotations:
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "archlens-services"
-        vault.hashicorp.com/agent-inject-secret-app-env: "secret/data/archlens/report"
-        vault.hashicorp.com/agent-inject-template-app-env: |
-          {{- with secret "secret/data/archlens/report" -}}
-          export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
-          export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
-          export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
-          export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
-          export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
-          export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
-          export LLM_API_KEY="{{ .Data.data.LLM_API_KEY }}"
-          export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
-          export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
-          export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
-          {{- end }}
     spec:
       serviceAccountName: default
       terminationGracePeriodSeconds: 30
+
+      volumes:
+        - name: vault-secrets
+          emptyDir: {}
+        - name: vault-agent-config
+          configMap:
+            name: report-service-vault-agent
+        - name: vault-token-home
+          emptyDir: {}
+
+      initContainers:
+        - name: vault-agent
+          image: hashicorp/vault:1.20.0
+          # Bypass do entrypoint que tenta chown como root.
+          command: ["vault"]
+          args:
+            - "agent"
+            - "-config=/vault/config/agent.hcl"
+            - "-exit-after-auth=true"
+          volumeMounts:
+            - name: vault-agent-config
+              mountPath: /vault/config
+              readOnly: true
+            - name: vault-secrets
+              mountPath: /vault/secrets
+            - name: vault-token-home
+              mountPath: /home/vault
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            allowPrivilegeEscalation: false
+
       containers:
         - name: report-service
           image: PLACEHOLDER/archlens/report-service:latest
@@ -85,6 +145,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: report-service-config
+          volumeMounts:
+            - name: vault-secrets
+              mountPath: /vault/secrets
+              readOnly: true
           resources:
             requests:
               cpu: 100m

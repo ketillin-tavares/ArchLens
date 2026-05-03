@@ -18,13 +18,12 @@ resource "helm_release" "vault" {
     { name = "server.dataStorage.size", value = var.vault_storage_size },
     { name = "server.dataStorage.storageClass", value = var.vault_storage_class },
 
-    # Vault Agent Injector — injeta secrets nos pods via anotações
-    { name = "injector.enabled", value = "true" },
-    { name = "injector.replicas", value = "1" },
-    # Override do vault-k8s — chart 0.32.0 default é 1.7.2 que tem panic em /mutate
-    # ("invalid memory address or nil pointer dereference" em handler.go:187).
-    # 1.7.4 corrige.
-    { name = "injector.image.tag", value = "1.7.4" },
+    # Vault Agent Injector DESABILITADO — vault-k8s 1.7.x panica em /mutate
+    # (nil pointer dereference em handler.go:187). Bypass via init container
+    # manual com `hashicorp/vault:1.20.0` em cada deployment, ver:
+    # - infra/k8s/deployments/*.yaml (upload/processing/report)
+    # - infra/terraform/03-platform/litellm.tf
+    { name = "injector.enabled", value = "false" },
 
     # Resources do Injector — essencial para evitar OOMKill sob pressao
     # (ele fica no caminho de admission de TODO pod do namespace).
