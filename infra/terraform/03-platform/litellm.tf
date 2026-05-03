@@ -407,6 +407,48 @@ resource "kubernetes_service" "presidio_anonymizer" {
 }
 
 # ── LiteLLM Deployment ─────────────────────────────────────────────────
+# ── Vault Agent config (init container) ──────────────────────────────
+# Substitui o injector que está com bug em vault-k8s 1.7.x. Renderiza
+# /vault/secrets/litellm com GEMINI_API_KEY e LITELLM_MASTER_KEY.
+resource "kubernetes_config_map" "litellm_vault_agent" {
+  metadata {
+    name      = "litellm-vault-agent"
+    namespace = data.kubernetes_namespace.archlens.metadata[0].name
+  }
+
+  data = {
+    "agent.hcl" = <<-HCL
+      auto_auth {
+        method "kubernetes" {
+          mount_path = "auth/kubernetes"
+          config = {
+            role = "archlens-services"
+          }
+        }
+        sink "file" {
+          config = {
+            path = "/home/vault/.token"
+          }
+        }
+      }
+
+      vault {
+        address = "http://vault.archlens.svc.cluster.local:8200"
+      }
+
+      template {
+        destination = "/vault/secrets/litellm"
+        contents = <<EOT
+        {{- with secret "secret/data/archlens/litellm" -}}
+        export GEMINI_API_KEY="{{ .Data.data.GEMINI_API_KEY }}"
+        export LITELLM_MASTER_KEY="{{ .Data.data.MASTER_KEY }}"
+        {{- end }}
+        EOT
+      }
+    HCL
+  }
+}
+
 resource "kubernetes_deployment" "litellm" {
   metadata {
     name      = "litellm-proxy"
@@ -427,22 +469,40 @@ resource "kubernetes_deployment" "litellm" {
     template {
       metadata {
         labels = { app = "litellm-proxy" }
-        annotations = {
-          # Vault Agent Injector — injeta secrets como arquivo /vault/secrets/litellm
-          "vault.hashicorp.com/agent-inject"                  = "true"
-          "vault.hashicorp.com/role"                          = "archlens-services"
-          "vault.hashicorp.com/agent-inject-secret-litellm"   = "secret/data/archlens/litellm"
-          "vault.hashicorp.com/agent-inject-template-litellm" = <<-TMPL
-            {{- with secret "secret/data/archlens/litellm" -}}
-            export GEMINI_API_KEY="{{ .Data.data.GEMINI_API_KEY }}"
-            export LITELLM_MASTER_KEY="{{ .Data.data.MASTER_KEY }}"
-            {{- end }}
-          TMPL
-        }
+        # Vault Agent injector bypassed — usamos init container manual abaixo
+        # (vault-k8s 1.7.x panica em /mutate, ver upload-service.yaml).
       }
 
       spec {
         service_account_name = "default"
+
+        init_container {
+          name  = "vault-agent"
+          image = "hashicorp/vault:1.20.0"
+          args = [
+            "agent",
+            "-config=/vault/config/agent.hcl",
+            "-exit-after-auth=true",
+          ]
+          volume_mount {
+            name       = "vault-agent-config"
+            mount_path = "/vault/config"
+            read_only  = true
+          }
+          volume_mount {
+            name       = "vault-secrets"
+            mount_path = "/vault/secrets"
+          }
+          volume_mount {
+            name       = "vault-token-home"
+            mount_path = "/home/vault"
+          }
+          security_context {
+            run_as_non_root            = true
+            run_as_user                = 100
+            allow_privilege_escalation = false
+          }
+        }
 
         container {
           name  = "litellm-proxy"
@@ -511,6 +571,12 @@ resource "kubernetes_deployment" "litellm" {
             read_only  = true
           }
 
+          volume_mount {
+            name       = "vault-secrets"
+            mount_path = "/vault/secrets"
+            read_only  = true
+          }
+
           resources {
             requests = {
               memory = "768Mi"
@@ -556,6 +622,23 @@ resource "kubernetes_deployment" "litellm" {
             name = kubernetes_config_map.litellm_guardrails.metadata[0].name
           }
         }
+
+        volume {
+          name = "vault-agent-config"
+          config_map {
+            name = kubernetes_config_map.litellm_vault_agent.metadata[0].name
+          }
+        }
+
+        volume {
+          name = "vault-secrets"
+          empty_dir {}
+        }
+
+        volume {
+          name = "vault-token-home"
+          empty_dir {}
+        }
       }
     }
   }
@@ -565,6 +648,7 @@ resource "kubernetes_deployment" "litellm" {
     helm_release.vault,
     kubernetes_config_map.litellm,
     kubernetes_config_map.litellm_guardrails,
+    kubernetes_config_map.litellm_vault_agent,
     kubernetes_job.litellm_db_bootstrap,
     kubernetes_service.presidio_analyzer,
     kubernetes_service.presidio_anonymizer

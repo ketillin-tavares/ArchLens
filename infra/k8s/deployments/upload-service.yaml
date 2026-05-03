@@ -1,10 +1,17 @@
 # ══════════════════════════════════════════════════════════════════════
 #  upload-service — Deployment + Service
 # ══════════════════════════════════════════════════════════════════════
-#  Segredos via Vault Agent Injector (arquivo /vault/secrets/app-env
-#  carregado com `source` antes do uvicorn).
-#  Envs não sensíveis via ConfigMap.
-#  Acesso S3 via IRSA (ServiceAccount upload-service-sa).
+#  Segredos via Vault Agent INIT CONTAINER manual (sem injector).
+#  - vault-agent-config (ConfigMap) define agent.hcl
+#  - initContainer roda `vault agent -exit-after-auth=true` que renderiza
+#    /vault/secrets/app-env via emptyDir compartilhada
+#  - main container faz `source` antes de subir o uvicorn
+#
+#  Bypass do Vault Agent Injector porque vault-k8s 1.7.x panica em
+#  /mutate (nil pointer em handler.go:187). Quando o injector for
+#  consertado, basta voltar pras annotations e remover este boilerplate.
+#
+#  Envs não sensíveis via ConfigMap. Acesso S3 via IRSA (upload-service-sa).
 #  Imagem atualizada pelo services-deploy.yaml (kubectl set image).
 # ══════════════════════════════════════════════════════════════════════
 apiVersion: v1
@@ -24,6 +31,48 @@ data:
   DEBUG: "false"
   LOG_LEVEL: "INFO"
   NRIA_DISPLAY_NAME: "upload-service"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upload-service-vault-agent
+  namespace: archlens
+data:
+  agent.hcl: |
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "archlens-services"
+        }
+      }
+      sink "file" {
+        config = {
+          path = "/home/vault/.token"
+        }
+      }
+    }
+
+    vault {
+      address = "http://vault.archlens.svc.cluster.local:8200"
+    }
+
+    template {
+      destination = "/vault/secrets/app-env"
+      contents = <<EOH
+      {{- with secret "secret/data/archlens/upload" -}}
+      export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
+      export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
+      export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
+      export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
+      export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
+      export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
+      export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+      export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
+      export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
+      {{- end }}
+      EOH
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,28 +98,39 @@ spec:
       labels:
         app: upload-service
         project: archlens
-      annotations:
-        # ── Vault Agent Injector ────────────────────────────────
-        # Arquivo /vault/secrets/app-env montado com exports; o container
-        # faz `source` antes de subir o uvicorn.
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "archlens-services"
-        vault.hashicorp.com/agent-inject-secret-app-env: "secret/data/archlens/upload"
-        vault.hashicorp.com/agent-inject-template-app-env: |
-          {{- with secret "secret/data/archlens/upload" -}}
-          export DATABASE_HOST="{{ .Data.data.DATABASE_HOST }}"
-          export DATABASE_USER="{{ .Data.data.DATABASE_USER }}"
-          export DATABASE_PASSWORD="{{ .Data.data.DATABASE_PASSWORD }}"
-          export RABBITMQ_HOST="{{ .Data.data.RABBITMQ_HOST }}"
-          export RABBITMQ_PASSWORD="{{ .Data.data.RABBITMQ_PASSWORD }}"
-          export S3_BUCKET_NAME="{{ .Data.data.S3_BUCKET_NAME }}"
-          export NEW_RELIC_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
-          export NEW_RELIC_ACCOUNT_ID="{{ .Data.data.NEW_RELIC_ACCOUNT_ID }}"
-          export NRIA_LICENSE_KEY="{{ .Data.data.NEW_RELIC_LICENSE_KEY }}"
-          {{- end }}
     spec:
       serviceAccountName: upload-service-sa
       terminationGracePeriodSeconds: 30
+
+      volumes:
+        - name: vault-secrets
+          emptyDir: {}
+        - name: vault-agent-config
+          configMap:
+            name: upload-service-vault-agent
+        - name: vault-token-home
+          emptyDir: {}
+
+      initContainers:
+        - name: vault-agent
+          image: hashicorp/vault:1.20.0
+          args:
+            - "agent"
+            - "-config=/vault/config/agent.hcl"
+            - "-exit-after-auth=true"
+          volumeMounts:
+            - name: vault-agent-config
+              mountPath: /vault/config
+              readOnly: true
+            - name: vault-secrets
+              mountPath: /vault/secrets
+            - name: vault-token-home
+              mountPath: /home/vault
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            allowPrivilegeEscalation: false
+
       containers:
         - name: upload-service
           # Tag sobrescrita pelo pipeline; manter :latest aqui apenas como placeholder
@@ -93,6 +153,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: upload-service-config
+
+          volumeMounts:
+            - name: vault-secrets
+              mountPath: /vault/secrets
+              readOnly: true
 
           resources:
             requests:
