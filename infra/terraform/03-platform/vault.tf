@@ -21,6 +21,10 @@ resource "helm_release" "vault" {
     # Vault Agent Injector — injeta secrets nos pods via anotações
     { name = "injector.enabled", value = "true" },
     { name = "injector.replicas", value = "1" },
+    # Override do vault-k8s — chart 0.32.0 default é 1.7.2 que tem panic em /mutate
+    # ("invalid memory address or nil pointer dereference" em handler.go:187).
+    # 1.7.4 corrige.
+    { name = "injector.image.tag", value = "1.7.4" },
 
     # Resources do Injector — essencial para evitar OOMKill sob pressao
     # (ele fica no caminho de admission de TODO pod do namespace).
