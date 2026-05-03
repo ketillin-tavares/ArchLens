@@ -279,12 +279,14 @@ resource "kubernetes_deployment" "presidio_analyzer" {
 
           resources {
             requests = {
-              memory = "256Mi"
-              cpu    = "100m"
+              memory = "512Mi"
+              cpu    = "200m"
             }
             limits = {
-              memory = "512Mi"
-              cpu    = "500m"
+              # spaCy models (pt_*) ~400-500MB + gunicorn worker → 1Gi mínimo.
+              # 512Mi causava OOMKilled (exit 137) no startup do AnalyzerEngine.
+              memory = "1Gi"
+              cpu    = "1000m"
             }
           }
 
