@@ -115,6 +115,7 @@ resource "kubernetes_config_map" "litellm" {
           litellm_params = {
             guardrail                   = "presidio"
             mode                        = "pre_call"
+            default_on                  = true
             output_parse_pii            = true
             presidio_ad_hoc_recognizers = null
             presidio_language           = "pt"
@@ -130,8 +131,9 @@ resource "kubernetes_config_map" "litellm" {
         {
           guardrail_name = "json-validator"
           litellm_params = {
-            guardrail = "guardrails.json_validator.JsonResponseValidator"
-            mode      = "post_call"
+            guardrail  = "guardrails.json_validator.JsonResponseValidator"
+            mode       = "post_call"
+            default_on = true
           }
         }
       ]
