@@ -1,0 +1,124 @@
+# ══════════════════════════════════════════════════════════════════════
+#  Job: gera virtual keys do LiteLLM e popula no Vault
+# ══════════════════════════════════════════════════════════════════════
+#  Idempotente — rodando 2x cria 2 VKs (cada com timestamp único). Use
+#  somente após o Vault estar bootstrapped e os secrets populados.
+#
+#  Pré-requisitos no Vault (configurar manualmente uma vez):
+#    1. Policy `archlens-vk-bootstrap`:
+#       path "secret/data/archlens/litellm"     { capabilities = ["read"] }
+#       path "secret/data/archlens/processing"  { capabilities = ["read","update","patch"] }
+#       path "secret/data/archlens/report"      { capabilities = ["read","update","patch"] }
+#    2. Role kubernetes:
+#       vault write auth/kubernetes/role/archlens-vk-bootstrap \
+#         bound_service_account_names="vk-bootstrap-sa" \
+#         bound_service_account_namespaces="archlens" \
+#         policies="archlens-vk-bootstrap" \
+#         ttl="10m"
+#
+#  Uso:
+#    kubectl apply -f infra/k8s/jobs/litellm-vk-bootstrap.yaml
+#    kubectl logs -f -n archlens job/litellm-vk-bootstrap
+#    kubectl rollout restart deployment -n archlens processing-service report-service
+# ══════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vk-bootstrap-sa
+  namespace: archlens
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: litellm-vk-bootstrap
+  namespace: archlens
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: litellm-vk-bootstrap
+    spec:
+      serviceAccountName: vk-bootstrap-sa
+      restartPolicy: OnFailure
+      containers:
+        - name: vk-bootstrap
+          image: alpine:3.20
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault.archlens.svc.cluster.local:8200"
+            - name: LITELLM_URL
+              value: "http://litellm-proxy.archlens.svc.cluster.local:4000"
+            - name: VAULT_ROLE
+              value: "archlens-vk-bootstrap"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl jq >/dev/null
+
+              echo "▶ Autenticando no Vault via Kubernetes SA"
+              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              VAULT_TOKEN=$(curl -fs --request POST \
+                --data "{\"jwt\":\"$SA_TOKEN\",\"role\":\"$VAULT_ROLE\"}" \
+                "$VAULT_ADDR/v1/auth/kubernetes/login" | jq -r '.auth.client_token')
+              [ -n "$VAULT_TOKEN" ] && [ "$VAULT_TOKEN" != "null" ] || \
+                { echo "❌ Falha no login Vault"; exit 1; }
+
+              echo "▶ Lendo MASTER_KEY do Vault"
+              MASTER_KEY=$(curl -fs -H "X-Vault-Token: $VAULT_TOKEN" \
+                "$VAULT_ADDR/v1/secret/data/archlens/litellm" | \
+                jq -r '.data.data.MASTER_KEY')
+              [ -n "$MASTER_KEY" ] && [ "$MASTER_KEY" != "null" ] || \
+                { echo "❌ MASTER_KEY não encontrada"; exit 1; }
+
+              gen_vk() {
+                local payload="$1"
+                curl -fs -X POST "$LITELLM_URL/key/generate" \
+                  -H "Authorization: Bearer $MASTER_KEY" \
+                  -H "Content-Type: application/json" \
+                  -d "$payload" | jq -r '.key'
+              }
+
+              patch_vault() {
+                local path="$1"
+                local vk="$2"
+                curl -fs --request PATCH \
+                  -H "X-Vault-Token: $VAULT_TOKEN" \
+                  -H "Content-Type: application/merge-patch+json" \
+                  -d "{\"data\":{\"LLM_API_KEY\":\"$vk\"}}" \
+                  "$VAULT_ADDR/v1/secret/data/archlens/$path" >/dev/null
+              }
+
+              echo "▶ Gerando VK processing-service"
+              PROC_VK=$(gen_vk '{
+                "key_alias": "processing-service-'"$(date +%s)"'",
+                "max_budget": 10.0,
+                "budget_duration": "30d",
+                "models": ["archlens-vision","archlens-analyzer"],
+                "rpm_limit": 30,
+                "tpm_limit": 100000,
+                "metadata": {"service":"processing-service","env":"prod"}
+              }')
+              echo "  ✓ ${PROC_VK%${PROC_VK#??????????}}…"
+
+              echo "▶ Gerando VK report-service"
+              REP_VK=$(gen_vk '{
+                "key_alias": "report-service-'"$(date +%s)"'",
+                "max_budget": 5.0,
+                "budget_duration": "30d",
+                "models": ["archlens-analyzer"],
+                "rpm_limit": 20,
+                "tpm_limit": 50000,
+                "metadata": {"service":"report-service","env":"prod"}
+              }')
+              echo "  ✓ ${REP_VK%${REP_VK#??????????}}…"
+
+              echo "▶ Patch secret/archlens/processing"
+              patch_vault processing "$PROC_VK"
+              echo "▶ Patch secret/archlens/report"
+              patch_vault report "$REP_VK"
+
+              echo "✅ VKs geradas e propagadas. Restart os deployments para puxar:"
+              echo "   kubectl rollout restart deployment -n archlens processing-service report-service"

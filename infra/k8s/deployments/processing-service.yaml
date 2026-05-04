@@ -167,9 +167,9 @@ spec:
               path: /health
               port: 8001
             initialDelaySeconds: 30
-            periodSeconds: 15
+            periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /health
