@@ -70,6 +70,12 @@ data "aws_cloudfront_cache_policy" "caching_disabled" {
   name = "Managed-CachingDisabled"
 }
 
+# Origin Request Policy gerenciada — forwarda Authorization, cookies, query strings
+# e o Host original. Necessária para chamadas API autenticadas via JWT/cookies.
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 # ══════════════════════════════════════════════════════════════════════
 #  Distribuição
 # ══════════════════════════════════════════════════════════════════════
@@ -94,6 +100,26 @@ resource "aws_cloudfront_distribution" "frontend" {
       content {
         enabled              = true
         origin_shield_region = var.origin_shield_region
+      }
+    }
+  }
+
+  # ── Origem Kong (ALB do Ingress Controller) ──────────────────────────
+  # Resolve mixed-content (CloudFront HTTPS → ALB HTTP) terminando TLS no edge.
+  # Hostname extraído do output kong_url do platform (sem prefixo http://).
+  dynamic "origin" {
+    for_each = local.api_gateway_url != "" ? [1] : []
+    content {
+      origin_id   = "kong-api"
+      domain_name = replace(replace(local.api_gateway_url, "https://", ""), "http://", "")
+
+      custom_origin_config {
+        http_port                = 80
+        https_port               = 443
+        origin_protocol_policy   = "http-only"
+        origin_ssl_protocols     = ["TLSv1.2"]
+        origin_read_timeout      = 60
+        origin_keepalive_timeout = 5
       }
     }
   }
@@ -124,6 +150,24 @@ resource "aws_cloudfront_distribution" "frontend" {
 
     cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.frontend.id
+  }
+
+  # ── Roteamento das APIs (Kong) ───────────────────────────────────────
+  # Sem cache, métodos completos, todos os headers/cookies/query strings
+  # forwardados (exceto Host, que precisa ser do origin pro ALB resolver).
+  dynamic "ordered_cache_behavior" {
+    for_each = local.api_gateway_url != "" ? toset(["/v1/*", "/upload*", "/processing*", "/report*"]) : toset([])
+    content {
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = "kong-api"
+      viewer_protocol_policy = "redirect-to-https"
+      allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods         = ["GET", "HEAD"]
+      compress               = true
+
+      cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+      origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    }
   }
 
   custom_error_response {
