@@ -38,6 +38,11 @@ git fetch origin
 git reset --hard "$COMMIT_SHA"
 echo "  HEAD pos-reset: $(git rev-parse HEAD)"
 
+# Defensivo: garante +x mesmo se algum script novo nao tiver mode tracking
+# no git. Idempotente; nao gera diff porque dirty state e descartado no
+# proximo deploy via reset --hard.
+chmod +x "$REPO_ROOT/infra/scripts/ec2"/*.sh
+
 echo "▶ [2/7] Login no ECR"
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$ECR_REGISTRY" >/dev/null
