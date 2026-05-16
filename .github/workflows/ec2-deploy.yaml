@@ -7,11 +7,12 @@ name: "EC2: Build & Deploy"
 #  Trigger: APENAS manual (workflow_dispatch).
 #
 #  Secrets necessarios no repo:
-#    - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-#    - EC2_HOST          (DNS publico ou IP da EC2)
-#    - EC2_SSH_USER      (default: ubuntu)
-#    - EC2_SSH_KEY       (chave privada PEM da key pair da EC2)
+#    - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (com permissao ssm:SendCommand,
+#      ssm:GetCommandInvocation, ec2:DescribeInstances)
+#    - EC2_HOST                   (DNS publico da EC2 — usado no health check)
 #    - VITE_CLERK_PUBLISHABLE_KEY (baked no build do frontend)
+#
+#  EC2_SSH_USER e EC2_SSH_KEY nao sao mais necessarios — deploy usa SSM.
 #
 #  Variaveis (Variables) no repo:
 #    - VITE_CLERK_JWT_TEMPLATE (opcional, default "archlens")
@@ -141,26 +142,88 @@ jobs:
         if: steps.filter.outputs.enabled != 'true'
         run: echo "Skipping ${{ matrix.service }} (not in inputs.services)"
 
-  # ── Deploy via SSH na EC2 ──────────────────────────────────────────
+  # ── Deploy via AWS SSM Run Command ─────────────────────────────────
+  # Usa SSM (IAM-based) em vez de SSH para nao precisar abrir porta 22
+  # para os IPs dos runners do GitHub Actions. O agente SSM ja esta na
+  # EC2 (instalado por padrao em Ubuntu 22.04) e a IAM role tem a policy
+  # AmazonSSMManagedInstanceCore via 05-ec2-deploy/iam.tf.
   deploy:
     name: "deploy"
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - name: SSH and run deploy.sh
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_SSH_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            /opt/archlens/infra/scripts/ec2/deploy.sh "${{ github.sha }}"
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Descobrir Instance ID (tag Name=archlens-ec2)
+        id: ec2
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=archlens-ec2" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "::error::Instance com tag Name=archlens-ec2 nao encontrada (verifique se a EC2 esta running)"
+            exit 1
+          fi
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "Instance: $INSTANCE_ID"
+
+      - name: Run deploy.sh via SSM
+        id: ssm
+        run: |
+          set -e
+          # Envia o comando para a EC2 via SSM. Roda como user 'ubuntu'
+          # (mesmo dono de /opt/archlens apos o chown do user-data).
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy ArchLens ${{ github.sha }}" \
+            --parameters '{
+              "commands": ["sudo -u ubuntu /opt/archlens/infra/scripts/ec2/deploy.sh '"${{ github.sha }}"'"],
+              "executionTimeout": ["1800"]
+            }' \
+            --query 'Command.CommandId' --output text)
+
+          echo "Command ID: $CMD_ID"
+          echo "cmd_id=$CMD_ID" >> "$GITHUB_OUTPUT"
+
+          # Aguarda a execucao completar (max ~30 min)
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+            || true
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+            --query 'Status' --output text)
+
+          echo "▶ Output do deploy.sh:"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+            --query 'StandardOutputContent' --output text | tail -200
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::deploy.sh falhou (status=$STATUS)"
+            echo "▶ STDERR:"
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+              --query 'StandardErrorContent' --output text | tail -100
+            exit 1
+          fi
 
       - name: Post-deploy health check
         run: |
           set -e
-          for path in "/health" ":8000/health"; do
+          for path in "/health" ":8000/upload/health"; do
             URL="http://${{ secrets.EC2_HOST }}${path}"
             echo "▶ GET $URL"
             for i in $(seq 1 12); do
@@ -180,5 +243,7 @@ jobs:
         run: |
           echo "### EC2 deploy" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Instance: \`${{ steps.ec2.outputs.instance_id }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SSM Command: \`${{ steps.ssm.outputs.cmd_id }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Frontend: http://${{ secrets.EC2_HOST }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Kong API: http://${{ secrets.EC2_HOST }}:8000" >> "$GITHUB_STEP_SUMMARY"
