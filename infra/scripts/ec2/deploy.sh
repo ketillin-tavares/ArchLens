@@ -30,7 +30,10 @@ set +a
 
 echo "▶ [1/7] Pull do commit $COMMIT_SHA"
 git fetch --quiet origin
-git checkout --quiet "$COMMIT_SHA"
+# reset --hard descarta edicoes manuais feitas na EC2 (debug, hotfix
+# experimental). O git remoto e a fonte da verdade — qualquer fix tem
+# que voltar via commit/push pra nao ser perdido no proximo deploy.
+git reset --hard --quiet "$COMMIT_SHA"
 
 echo "▶ [2/7] Login no ECR"
 aws ecr get-login-password --region "$AWS_REGION" \

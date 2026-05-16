@@ -186,28 +186,39 @@ jobs:
             --comment "Deploy ArchLens ${{ github.sha }}" \
             --parameters '{
               "commands": ["sudo -u ubuntu /opt/archlens/infra/scripts/ec2/deploy.sh '"${{ github.sha }}"'"],
-              "executionTimeout": ["1800"]
+              "executionTimeout": ["600"]
             }' \
             --query 'Command.CommandId' --output text)
 
           echo "Command ID: $CMD_ID"
           echo "cmd_id=$CMD_ID" >> "$GITHUB_OUTPUT"
+          INSTANCE="${{ steps.ec2.outputs.instance_id }}"
 
-          # Aguarda a execucao completar (max ~30 min)
-          aws ssm wait command-executed \
-            --command-id "$CMD_ID" \
-            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
-            || true
+          # Polling manual (aws ssm wait tem timeout fixo ~100s, insuficiente
+          # para deploys que rodam migrations + pull). Max 10 min (30 * 20s).
+          STATUS="Pending"
+          for i in $(seq 1 30); do
+            sleep 20
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE" \
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
 
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$CMD_ID" \
-            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
-            --query 'Status' --output text)
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut|DeliveryTimedOut|ExecutionTimedOut|Undeliverable|Terminated)
+                echo "  [$i/30] Status final: $STATUS"
+                break
+                ;;
+              *)
+                echo "  [$i/30] Status: $STATUS"
+                ;;
+            esac
+          done
 
           echo "▶ Output do deploy.sh:"
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
-            --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+            --instance-id "$INSTANCE" \
             --query 'StandardOutputContent' --output text | tail -200
 
           if [ "$STATUS" != "Success" ]; then
@@ -215,7 +226,7 @@ jobs:
             echo "▶ STDERR:"
             aws ssm get-command-invocation \
               --command-id "$CMD_ID" \
-              --instance-id "${{ steps.ec2.outputs.instance_id }}" \
+              --instance-id "$INSTANCE" \
               --query 'StandardErrorContent' --output text | tail -100
             exit 1
           fi
