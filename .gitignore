@@ -234,3 +234,7 @@ CLAUDE.md
 
 # Vault
 vault-init.json
+
+# EC2 deploy bootstrap (gerado em runtime na EC2)
+.bootstrap.env
+/secrets/
