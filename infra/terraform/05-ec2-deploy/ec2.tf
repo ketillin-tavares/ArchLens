@@ -68,6 +68,11 @@ resource "aws_instance" "archlens" {
   metadata_options {
     http_tokens   = "required"
     http_endpoint = "enabled"
+    # hop_limit=2 e obrigatorio para que containers Docker (bridge network)
+    # consigam acessar o EC2 Instance Metadata Service (IMDSv2). Sem isso,
+    # boto3 dentro dos containers retorna NoCredentialsError mesmo com a
+    # IAM role anexada na EC2.
+    http_put_response_hop_limit = 2
   }
 
   tags = merge(local.common_tags, { Name = "archlens-ec2" })
