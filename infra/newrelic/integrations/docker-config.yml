@@ -1,0 +1,7 @@
+integrations:
+  - name: nri-docker
+    when:
+      file_exists: /var/run/docker.sock
+    # Aspas obrigatorias: sem elas o YAML promove '15s' a int 15 num
+    # parser-dependente e o agent loga "missing unit in duration 15".
+    interval: "15s"

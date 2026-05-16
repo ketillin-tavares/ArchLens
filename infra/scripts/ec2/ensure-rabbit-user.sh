@@ -40,21 +40,26 @@ for i in {1..30}; do
 done
 
 echo "▶ Garantindo user '$USER' (idempotente)"
+# authenticate_user so valida SASL/AMQP — nao checa tags do management API.
+# Por isso NAO podemos sair cedo so porque a auth basica passou: sem a tag
+# `administrator`, integracoes como nri-rabbitmq (porta 15672) levam 401.
 if docker exec rabbitmq rabbitmqctl authenticate_user "$USER" "$PASS" >/dev/null 2>&1; then
-  echo "  ✓ User ja autentica corretamente"
-  exit 0
-fi
-
-# Tenta criar; se ja existe, muda a senha
-if docker exec rabbitmq rabbitmqctl add_user "$USER" "$PASS" 2>/dev/null; then
-  echo "  ✓ User '$USER' criado"
+  echo "  ✓ User ja existe e autentica via AMQP"
 else
-  docker exec rabbitmq rabbitmqctl change_password "$USER" "$PASS" >/dev/null
-  echo "  ✓ Senha do user '$USER' atualizada"
+  # Tenta criar; se ja existe com senha diferente, atualiza a senha
+  if docker exec rabbitmq rabbitmqctl add_user "$USER" "$PASS" 2>/dev/null; then
+    echo "  ✓ User '$USER' criado"
+  else
+    docker exec rabbitmq rabbitmqctl change_password "$USER" "$PASS" >/dev/null
+    echo "  ✓ Senha do user '$USER' atualizada"
+  fi
 fi
 
+# Tags e permissoes sao idempotentes — aplica sempre para corrigir users
+# criados em runs anteriores (ou pelo bootstrap) que ficaram sem tag.
 docker exec rabbitmq rabbitmqctl set_user_tags "$USER" administrator >/dev/null
 docker exec rabbitmq rabbitmqctl set_permissions -p / "$USER" ".*" ".*" ".*" >/dev/null
+echo "  ✓ Tag 'administrator' e permissoes '.*' aplicadas em vhost '/'"
 
 # Validacao final
 docker exec rabbitmq rabbitmqctl authenticate_user "$USER" "$PASS" >/dev/null

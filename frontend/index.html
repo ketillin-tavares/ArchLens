@@ -12,6 +12,50 @@
       rel="stylesheet"
     />
     <title>ArchLens</title>
+
+    <!-- New Relic Browser (Pro+SPA) — só inicializa se VITE_NEWRELIC_LICENSE_KEY estiver setada em build time. -->
+    <script>
+      (function () {
+        var licenseKey = "%VITE_NEWRELIC_LICENSE_KEY%";
+        var applicationID = "%VITE_NEWRELIC_BROWSER_APP_ID%";
+        var accountID = "%VITE_NEWRELIC_ACCOUNT_ID%";
+        var agentID = "%VITE_NEWRELIC_BROWSER_AGENT_ID%";
+        var trustKey = "%VITE_NEWRELIC_TRUST_KEY%";
+        // Vite mantém o literal '%VITE_…%' quando a env var é vazia/ausente.
+        // Sem licença válida, não carregamos o agent — evita beacon quebrado.
+        if (!licenseKey || licenseKey.indexOf("%VITE_") === 0) return;
+
+        window.NREUM = window.NREUM || {};
+        window.NREUM.init = {
+          distributed_tracing: {
+            enabled: true,
+            cors_use_newrelic_header: true,
+            cors_use_tracecontext_headers: true,
+            allowed_origins: [window.location.origin]
+          },
+          privacy: { cookies_enabled: true },
+          ajax: { deny_list: ["bam.nr-data.net"] }
+        };
+        window.NREUM.loader_config = {
+          accountID: accountID,
+          trustKey: trustKey || accountID,
+          agentID: agentID || applicationID,
+          licenseKey: licenseKey,
+          applicationID: applicationID
+        };
+        window.NREUM.info = {
+          beacon: "bam.nr-data.net",
+          errorBeacon: "bam.nr-data.net",
+          licenseKey: licenseKey,
+          applicationID: applicationID,
+          sa: 1
+        };
+        var s = document.createElement("script");
+        s.src = "https://js-agent.newrelic.com/nr-loader-spa-current.min.js";
+        s.async = true;
+        document.head.appendChild(s);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
