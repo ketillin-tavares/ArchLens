@@ -117,12 +117,12 @@ jobs:
           fi
 
           # Build args extras para o frontend (Vite envs precisam estar no build).
-          # VITE_KONG_BASE_URL vazia: SPA chama /v1/* na mesma origem; o
-          # nginx.ec2.conf faz proxy /v1 -> kong:8000 sem rewrite.
+          # VITE_KONG_BASE_URL=/api: identico ao local. SPA chama /api/v1/* e o
+          # nginx.ec2.conf faz proxy /api -> kong (com rewrite, igual local).
           EXTRA_ARGS=""
           if [ "${{ matrix.service }}" = "frontend" ]; then
             EXTRA_ARGS="--build-arg NGINX_CONF=nginx.ec2.conf \
-                       --build-arg VITE_KONG_BASE_URL= \
+                       --build-arg VITE_KONG_BASE_URL=/api \
                        --build-arg VITE_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }} \
                        --build-arg VITE_CLERK_JWT_TEMPLATE=${{ vars.VITE_CLERK_JWT_TEMPLATE || 'archlens' }}"
           fi

@@ -55,6 +55,12 @@ variable "ec2_spot_max_price" {
   description = "Preco maximo do spot por hora (USD). Vazio = preco on-demand como teto, evitando que o lance falhe."
 }
 
+variable "bootstrap_services" {
+  type        = bool
+  default     = false
+  description = "Quando false (default), nao cria a EC2 — apenas VPC, RDS, S3, ECR e os secrets (com placeholders). Setar para true APENAS depois de popular os secrets em archlens/<env>/* via Secrets Manager. Isso garante que o user-data encontre valores reais ao rodar bootstrap-rds.sh e demais scripts."
+}
+
 variable "ec2_key_name" {
   type        = string
   description = "Nome da key pair AWS para acesso SSH (criar previamente no console EC2)"

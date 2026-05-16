@@ -31,6 +31,8 @@ locals {
 }
 
 resource "aws_instance" "archlens" {
+  count = var.bootstrap_services ? 1 : 0
+
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.ec2_instance_type
   key_name               = var.ec2_key_name
@@ -83,8 +85,10 @@ resource "aws_instance" "archlens" {
 }
 
 resource "aws_eip" "archlens" {
+  count = var.bootstrap_services ? 1 : 0
+
   domain   = "vpc"
-  instance = aws_instance.archlens.id
+  instance = aws_instance.archlens[0].id
 
   tags = merge(local.common_tags, { Name = "archlens-ec2-eip" })
 }
