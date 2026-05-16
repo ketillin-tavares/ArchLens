@@ -960,7 +960,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(cpuPercent) AS 'CPU %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(cpuPercent) AS 'CPU %' FROM ContainerSample WHERE name IN ('upload-service', 'processing-service', 'report-service') FACET name TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -974,7 +974,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(memoryUsageBytes) / average(memoryLimitBytes) * 100 AS 'Mem %' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(memoryUsageBytes) / 1e6 AS 'Mem MB' FROM ContainerSample WHERE name IN ('upload-service', 'processing-service', 'report-service') FACET name TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -988,7 +988,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(networkRxBytes) AS 'Rx Bytes', average(networkTxBytes) AS 'Tx Bytes' FROM ContainerSample WHERE containerName IN ('upload-service', 'processing-service', 'report-service') FACET containerName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(networkRxBytesPerSecond) AS 'Rx B/s', average(networkTxBytesPerSecond) AS 'Tx B/s' FROM ContainerSample WHERE name IN ('upload-service', 'processing-service', 'report-service') FACET name TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1002,7 +1002,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(cpuPercent) AS 'CPU %', average(memoryUsedPercent) AS 'Mem %' FROM SystemSample WHERE displayName = 'archlens-local' TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(cpuPercent) AS 'CPU %', average(memoryUsedPercent) AS 'Mem %' FROM SystemSample FACET hostname TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1025,7 +1025,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'processing-service.pipeline' TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(queue.messagesReadyDeliveryClients) AS 'Prontas', average(queue.messagesReadyUnacknowledged) AS 'Não-ack', average(queue.totalMessages) AS 'Total' FROM RabbitmqQueueSample WHERE entityName LIKE '%processing-service.pipeline' AND entityName NOT LIKE '%.dlq' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1039,7 +1039,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'report-service.reports' TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(queue.messagesReadyDeliveryClients) AS 'Prontas', average(queue.messagesReadyUnacknowledged) AS 'Não-ack', average(queue.totalMessages) AS 'Total' FROM RabbitmqQueueSample WHERE entityName LIKE '%report-service.reports' AND entityName NOT LIKE '%.dlq' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1053,7 +1053,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(queue.messagesReadyCount) AS 'Prontas', average(queue.messagesUnacknowledgedCount) AS 'Não-ack' FROM RabbitmqQueueSample WHERE queue.name = 'upload-service.status-updates' TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(queue.messagesReadyDeliveryClients) AS 'Prontas', average(queue.messagesReadyUnacknowledged) AS 'Não-ack', average(queue.totalMessages) AS 'Total' FROM RabbitmqQueueSample WHERE entityName LIKE '%upload-service.status-updates' AND entityName NOT LIKE '%.dlq' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1067,7 +1067,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(queue.messagesReadyCount) AS 'Mensagens DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' FACET queue.name TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(queue.totalMessages) AS 'Mensagens DLQ' FROM RabbitmqQueueSample WHERE entityName LIKE '%.dlq' FACET entityName TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
@@ -1081,7 +1081,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT sum(queue.messagesReadyCount) AS 'Total DLQ' FROM RabbitmqQueueSample WHERE queue.name LIKE '%.dlq' OR queue.name LIKE '%dead%' SINCE 5 minutes ago"
+                "query": "SELECT latest(queue.totalMessages) AS 'Total DLQ' FROM RabbitmqQueueSample WHERE entityName LIKE '%.dlq' SINCE 15 minutes ago"
               }
             ],
             "thresholds": [
@@ -1099,7 +1099,7 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT latest(queue.messagesReadyCount) AS 'Prontas', latest(queue.messagesUnacknowledgedCount) AS 'Não-ack', latest(queue.totalGet) AS 'Total Consumidas' FROM RabbitmqQueueSample FACET queue.name SINCE 5 minutes ago LIMIT 20"
+                "query": "SELECT latest(queue.messagesReadyDeliveryClients) AS 'Prontas', latest(queue.messagesReadyUnacknowledged) AS 'Não-ack', latest(queue.consumers) AS 'Consumers', latest(queue.totalMessages) AS 'Total', latest(queue.messagesPublishedPerSecond) AS 'Pub/s', latest(queue.messagesAcknowledgedPerSecond) AS 'Ack/s' FROM RabbitmqQueueSample FACET entityName SINCE 15 minutes ago LIMIT 20"
               }
             ]
           }
@@ -1302,8 +1302,8 @@
       ]
     },
     {
-      "name": "Distributed Tracing",
-      "description": "Rastreamento ponta a ponta do pipeline: Upload → RabbitMQ → Processing → Report.",
+      "name": "AWS Infrastructure",
+      "description": "Métricas AWS coletadas via New Relic AWS Integration (CloudWatch Metric Streams) do stack EC2: RDS (archlens-ec2-db), S3 (archlens-ec2-diagramas-*) e EC2 host.",
       "widgets": [
         {
           "title": "",
@@ -1311,67 +1311,107 @@
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.markdown" },
           "rawConfiguration": {
-            "text": "## Distributed Tracing — Pipeline E2E\nTracing propagado via headers AMQP (`insert_distributed_trace_headers` / `accept_distributed_trace_headers`). Serviços: upload-service → processing-service → report-service."
+            "text": "## AWS Infrastructure — ArchLens (EC2 single-host)\nServiços monitorados: **RDS PostgreSQL** (`archlens-ec2-db`) · **S3** (`archlens-ec2-diagramas-*`) · **EC2** host (`archlens-ec2`).\nFonte: CloudWatch Metric Streams (`FROM Metric WHERE aws.Namespace = ...`) + agent newrelic-infra dentro do EC2 (`SystemSample` / `ContainerSample`)."
           }
         },
         {
-          "title": "Duração Média dos Spans por Serviço (ms)",
-          "layout": { "column": 1, "row": 2, "width": 6, "height": 3 },
+          "title": "RDS — CPU Utilization (%)",
+          "layout": { "column": 1, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.rds.CPUUtilization) AS 'CPU %' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' SINCE 10 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 70 },
+              { "alertSeverity": "CRITICAL", "value": 85 }
+            ]
+          }
+        },
+        {
+          "title": "RDS — Conexões Ativas",
+          "layout": { "column": 4, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT latest(aws.rds.DatabaseConnections) AS 'Connections' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' SINCE 10 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 80 },
+              { "alertSeverity": "CRITICAL", "value": 150 }
+            ]
+          }
+        },
+        {
+          "title": "RDS — Free Storage (GB)",
+          "layout": { "column": 7, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.rds.FreeStorageSpace) / 1e9 AS 'Free GB' FROM Metric WHERE metricName = 'aws.rds.FreeStorageSpace' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' SINCE 30 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 },
+              { "alertSeverity": "CRITICAL", "value": 2 }
+            ]
+          }
+        },
+        {
+          "title": "RDS — Freeable Memory (MB)",
+          "layout": { "column": 10, "row": 2, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.rds.FreeableMemory) / 1e6 AS 'Free MB' FROM Metric WHERE metricName = 'aws.rds.FreeableMemory' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' SINCE 30 minutes ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "RDS — CPU & Memória ao Longo do Tempo",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.line" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(duration.ms) AS 'Avg (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(aws.rds.CPUUtilization) AS 'CPU %', average(aws.rds.FreeableMemory) / 1e6 AS 'Free Mem (MB)' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
         },
         {
-          "title": "P95 Duração dos Spans por Serviço (ms)",
-          "layout": { "column": 7, "row": 2, "width": 6, "height": 3 },
+          "title": "RDS — Read/Write Latency (s)",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.line" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT percentile(duration.ms, 95) AS 'P95 (ms)' FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(aws.rds.ReadLatency) AS 'Read (s)', average(aws.rds.WriteLatency) AS 'Write (s)' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
         },
         {
-          "title": "Spans por Tipo de Operação",
-          "layout": { "column": 1, "row": 5, "width": 4, "height": 3 },
-          "linkedEntityGuids": null,
-          "visualization": { "id": "viz.pie" },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [0],
-                "query": "SELECT count(*) FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') FACET category SINCE 1 hour ago"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Traces com Erro — Últimas 3h",
-          "layout": { "column": 5, "row": 5, "width": 8, "height": 3 },
-          "linkedEntityGuids": null,
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [0],
-                "query": "SELECT trace.id, appName, name, duration.ms, error.message FROM Span WHERE error.message IS NOT NULL AND appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY timestamp DESC LIMIT 20 SINCE 3 hours ago"
-              }
-            ]
-          }
-        },
-        {
-          "title": "Operações de Banco de Dados — Tempo por Serviço",
+          "title": "RDS — IOPS (Read/Write)",
           "layout": { "column": 1, "row": 8, "width": 6, "height": 3 },
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.line" },
@@ -1379,13 +1419,13 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(duration.ms) AS 'DB Avg (ms)' FROM Span WHERE category = 'datastore' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(aws.rds.ReadIOPS) AS 'Read IOPS', average(aws.rds.WriteIOPS) AS 'Write IOPS' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
         },
         {
-          "title": "Operações AMQP — Tempo de Publicação/Consumo",
+          "title": "RDS — Throughput (Read/Write bytes)",
           "layout": { "column": 7, "row": 8, "width": 6, "height": 3 },
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.line" },
@@ -1393,21 +1433,237 @@
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT average(duration.ms) AS 'AMQP Avg (ms)' FROM Span WHERE category = 'message' AND appName IN ('upload-service', 'processing-service', 'report-service') FACET appName TIMESERIES AUTO SINCE 3 hours ago"
+                "query": "SELECT average(aws.rds.ReadThroughput) AS 'Read B/s', average(aws.rds.WriteThroughput) AS 'Write B/s' FROM Metric WHERE aws.Namespace = 'AWS/RDS' AND aws.rds.DBInstanceIdentifier = 'archlens-ec2-db' TIMESERIES AUTO SINCE 3 hours ago"
               }
             ]
           }
         },
         {
-          "title": "Slowest Spans — Últimos 30 (all services)",
-          "layout": { "column": 1, "row": 11, "width": 12, "height": 4 },
+          "title": "",
+          "layout": { "column": 1, "row": 11, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "### S3 — Bucket `archlens-diagramas` (armazenamento de diagramas)"
+          }
+        },
+        {
+          "title": "S3 — Tamanho do Bucket (GB)",
+          "layout": { "column": 1, "row": 12, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.s3.BucketSizeBytes) / 1e9 AS 'Size (GB)' FROM Metric WHERE aws.Namespace = 'AWS/S3' AND aws.s3.BucketName LIKE 'archlens-ec2-diagramas-%' TIMESERIES AUTO SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "S3 — Número de Objetos",
+          "layout": { "column": 5, "row": 12, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.s3.NumberOfObjects) AS 'Objects' FROM Metric WHERE aws.Namespace = 'AWS/S3' AND aws.s3.BucketName LIKE 'archlens-ec2-diagramas-%' TIMESERIES AUTO SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "S3 — Requests (All / 4xx / 5xx)",
+          "layout": { "column": 9, "row": 12, "width": 4, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(aws.s3.AllRequests) AS 'All', sum(`aws.s3.4xxErrors`) AS '4xx', sum(`aws.s3.5xxErrors`) AS '5xx' FROM Metric WHERE aws.Namespace = 'AWS/S3' AND aws.s3.BucketName LIKE 'archlens-ec2-diagramas-%' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "S3 — First Byte Latency (ms)",
+          "layout": { "column": 1, "row": 15, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.s3.FirstByteLatency) AS 'FirstByte (ms)', average(aws.s3.TotalRequestLatency) AS 'Total (ms)' FROM Metric WHERE aws.Namespace = 'AWS/S3' AND aws.s3.BucketName LIKE 'archlens-ec2-diagramas-%' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "S3 — Bytes Uploaded vs Downloaded",
+          "layout": { "column": 7, "row": 15, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(aws.s3.BytesUploaded) AS 'Uploaded', sum(aws.s3.BytesDownloaded) AS 'Downloaded' FROM Metric WHERE aws.Namespace = 'AWS/S3' AND aws.s3.BucketName LIKE 'archlens-ec2-diagramas-%' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "",
+          "layout": { "column": 1, "row": 18, "width": 12, "height": 1 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "### EC2 — Host `archlens-ec2` (single-instance deploy via docker-compose)\nFontes: **CloudWatch** (`aws.ec2.*`) + agente **newrelic-infra** dentro do EC2 (`SystemSample`, `ContainerSample`, `ProcessSample`)."
+          }
+        },
+        {
+          "title": "EC2 — CPU CloudWatch (%)",
+          "layout": { "column": 1, "row": 19, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.ec2.CPUUtilization) AS 'CPU %' FROM Metric WHERE aws.Namespace = 'AWS/EC2' SINCE 10 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 70 },
+              { "alertSeverity": "CRITICAL", "value": 90 }
+            ]
+          }
+        },
+        {
+          "title": "EC2 — StatusCheckFailed (1h)",
+          "layout": { "column": 4, "row": 19, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT sum(aws.ec2.StatusCheckFailed) AS 'Failures' FROM Metric WHERE aws.Namespace = 'AWS/EC2' SINCE 1 hour ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 },
+              { "alertSeverity": "CRITICAL", "value": 3 }
+            ]
+          }
+        },
+        {
+          "title": "Host — Memória Usada (%)",
+          "layout": { "column": 7, "row": 19, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT latest(memoryUsedPercent) AS 'Mem %' FROM SystemSample WHERE displayName = 'archlens-ec2' SINCE 5 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 75 },
+              { "alertSeverity": "CRITICAL", "value": 90 }
+            ]
+          }
+        },
+        {
+          "title": "Host — Disco Raiz Usado (%)",
+          "layout": { "column": 10, "row": 19, "width": 3, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT latest(diskUsedPercent) AS 'Disk %' FROM StorageSample WHERE displayName = 'archlens-ec2' AND mountPoint = '/' SINCE 5 minutes ago"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 70 },
+              { "alertSeverity": "CRITICAL", "value": 85 }
+            ]
+          }
+        },
+        {
+          "title": "EC2 — CloudWatch CPU & Rede ao Longo do Tempo",
+          "layout": { "column": 1, "row": 22, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(aws.ec2.CPUUtilization) AS 'CPU %', average(aws.ec2.NetworkIn) / 1e6 AS 'In MB/s', average(aws.ec2.NetworkOut) / 1e6 AS 'Out MB/s' FROM Metric WHERE aws.Namespace = 'AWS/EC2' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Host — CPU/Memória (newrelic-infra)",
+          "layout": { "column": 7, "row": 22, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(cpuPercent) AS 'CPU %', average(memoryUsedPercent) AS 'Mem %' FROM SystemSample WHERE displayName = 'archlens-ec2' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Host — Load Average (1m / 5m / 15m)",
+          "layout": { "column": 1, "row": 25, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(loadAverageOneMinute) AS '1m', average(loadAverageFiveMinute) AS '5m', average(loadAverageFifteenMinute) AS '15m' FROM SystemSample WHERE displayName = 'archlens-ec2' TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Host — Throughput de Disco (bytes/s)",
+          "layout": { "column": 7, "row": 25, "width": 6, "height": 3 },
+          "linkedEntityGuids": null,
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT average(readBytesPerSecond) AS 'Read B/s', average(writeBytesPerSecond) AS 'Write B/s' FROM StorageSample WHERE displayName = 'archlens-ec2' AND device NOT LIKE 'loop%' FACET device TIMESERIES AUTO SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Containers no EC2 — CPU/Memória (top 20)",
+          "layout": { "column": 1, "row": 28, "width": 12, "height": 3 },
           "linkedEntityGuids": null,
           "visualization": { "id": "viz.table" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountIds": [0],
-                "query": "SELECT trace.id, appName, name, duration.ms, category, timestamp FROM Span WHERE appName IN ('upload-service', 'processing-service', 'report-service') ORDER BY duration.ms DESC LIMIT 30 SINCE 1 hour ago"
+                "query": "SELECT latest(cpuPercent) AS 'CPU %', latest(memoryUsageBytes) / 1e6 AS 'Mem MB', latest(restartCount) AS 'Restarts', latest(state) AS 'State' FROM ContainerSample FACET name SINCE 15 minutes ago LIMIT 20"
               }
             ]
           }
