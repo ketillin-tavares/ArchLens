@@ -1,0 +1,286 @@
+# ══════════════════════════════════════════════════════════════════════
+#  docker-compose.ec2.yml — Producao em EC2 unica.
+#  Diferencas vs docker-compose.yml (dev local):
+#    - Sem postgres (usa RDS)
+#    - Sem localstack (usa S3 real, credenciais via IAM role da EC2)
+#    - Sem vault (usa AWS Secrets Manager via fetch-secrets.sh)
+#    - Imagens vem do ECR (sem build:)
+#    - env_file aponta para /opt/archlens/secrets/<servico>.env
+#    - Frontend exposto em :80, Kong em :8000
+#  Variaveis esperadas no .env raiz (gerado por user-data/deploy.sh):
+#    - ECR_REGISTRY
+#    - IMAGE_TAG (commit sha do deploy)
+# ══════════════════════════════════════════════════════════════════════
+
+services:
+  # ── Infra runtime ────────────────────────────────────────────────────
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    env_file:
+      - ./secrets/rabbitmq.env
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infra/scripts/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./infra/scripts/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── Guardrails ───────────────────────────────────────────────────────
+
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: presidio-analyzer
+    hostname: presidio-analyzer
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    container_name: presidio-anonymizer
+    hostname: presidio-anonymizer
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── Gateway LLM ──────────────────────────────────────────────────────
+
+  litellm:
+    image: ${ECR_REGISTRY}/archlens-ec2/litellm-gateway:${IMAGE_TAG:-latest}
+    container_name: litellm
+    hostname: litellm
+    env_file:
+      - ./secrets/litellm.env
+    environment:
+      PRESIDIO_ANALYZER_API_BASE: http://presidio-analyzer:3000
+      PRESIDIO_ANONYMIZER_API_BASE: http://presidio-anonymizer:3000
+    volumes:
+      - ./gateways/litellm/litellm_config.yaml:/app/config.yaml:ro
+      - ./gateways/litellm/guardrails:/app/guardrails:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      presidio-analyzer:
+        condition: service_healthy
+      presidio-anonymizer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── Migrations (one-shot) ────────────────────────────────────────────
+
+  upload-migrations:
+    image: ${ECR_REGISTRY}/archlens-ec2/upload-service:${IMAGE_TAG:-latest}
+    container_name: upload-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./secrets/upload-service.env
+    restart: "no"
+    networks:
+      - archlens
+
+  processing-migrations:
+    image: ${ECR_REGISTRY}/archlens-ec2/processing-service:${IMAGE_TAG:-latest}
+    container_name: processing-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./secrets/processing-service.env
+    restart: "no"
+    networks:
+      - archlens
+
+  report-migrations:
+    image: ${ECR_REGISTRY}/archlens-ec2/report-service:${IMAGE_TAG:-latest}
+    container_name: report-migrations
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./secrets/report-service.env
+    restart: "no"
+    networks:
+      - archlens
+
+  # ── Backend Services ─────────────────────────────────────────────────
+
+  upload-service:
+    image: ${ECR_REGISTRY}/archlens-ec2/upload-service:${IMAGE_TAG:-latest}
+    container_name: upload-service
+    hostname: upload-service
+    env_file:
+      - ./secrets/upload-service.env
+    depends_on:
+      upload-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  processing-service:
+    image: ${ECR_REGISTRY}/archlens-ec2/processing-service:${IMAGE_TAG:-latest}
+    container_name: processing-service
+    hostname: processing-service
+    env_file:
+      - ./secrets/processing-service.env
+    depends_on:
+      processing-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  report-service:
+    image: ${ECR_REGISTRY}/archlens-ec2/report-service:${IMAGE_TAG:-latest}
+    container_name: report-service
+    hostname: report-service
+    env_file:
+      - ./secrets/report-service.env
+    depends_on:
+      report-migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── API Gateway ──────────────────────────────────────────────────────
+
+  kong:
+    image: kong:3.9
+    container_name: kong
+    hostname: kong
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./secrets/kong.env
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "127.0.0.1:8001"
+    volumes:
+      - ./gateways/kong/kong.yml:/etc/kong/kong.yml:ro
+      - ./gateways/kong/kong.yml.template:/etc/kong/kong.yml.template:ro
+      - ./gateways/kong/docker-entrypoint.sh:/custom-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/custom-entrypoint.sh"]
+    depends_on:
+      upload-service:
+        condition: service_healthy
+      processing-service:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── Frontend ─────────────────────────────────────────────────────────
+
+  frontend:
+    image: ${ECR_REGISTRY}/archlens-ec2/frontend:${IMAGE_TAG:-latest}
+    container_name: frontend
+    hostname: frontend
+    ports:
+      - "80:8080"
+    depends_on:
+      kong:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - archlens
+
+  # ── Observability ────────────────────────────────────────────────────
+
+  newrelic-infra:
+    image: newrelic/infrastructure-bundle:3.3.20
+    container_name: newrelic-infra
+    cap_add:
+      - SYS_PTRACE
+    pid: host
+    privileged: true
+    environment:
+      NRIA_DISPLAY_NAME: archlens-ec2
+      NRIA_DOCKER_API_VERSION: "1.24"
+      NRIA_ENABLE_PROCESS_METRICS: "true"
+      NRIA_METRICS_SYSTEM_SAMPLE_RATE: 15
+      NRIA_METRICS_PROCESS_SAMPLE_RATE: 30
+      NRIA_METRICS_NETWORK_SAMPLE_RATE: 30
+      NRIA_METRICS_STORAGE_SAMPLE_RATE: 30
+      NRIA_CONTAINER_CACHE_METADATA_LIMIT: 120
+    env_file:
+      - ./secrets/newrelic.env
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/newrelic/integrations:/etc/newrelic-infra/integrations.d:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - archlens
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  archlens:
+    driver: bridge

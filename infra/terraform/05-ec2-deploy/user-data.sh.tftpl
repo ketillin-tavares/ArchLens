@@ -1,0 +1,94 @@
+#!/bin/bash
+# ══════════════════════════════════════════════════════════════════════
+# user-data.sh — executado APENAS na primeira boot da EC2.
+# Atualizacoes de servicos NAO passam por aqui (usar deploy.sh via SSH).
+# ══════════════════════════════════════════════════════════════════════
+set -euxo pipefail
+
+LOG_FILE=/var/log/archlens-bootstrap.log
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "▶ [1/7] Atualizando sistema e instalando dependencias"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y \
+  ca-certificates curl gnupg lsb-release \
+  git jq unzip postgresql-client
+
+echo "▶ [2/7] Instalando Docker Engine + Compose plugin"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+usermod -aG docker ubuntu
+systemctl enable --now docker
+
+echo "▶ [3/7] Instalando AWS CLI v2"
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install --update
+rm -rf /tmp/awscliv2.zip /tmp/aws
+
+echo "▶ [4/7] Configurando regiao default e clonando repo"
+mkdir -p /root/.aws
+cat > /root/.aws/config <<EOF
+[default]
+region = ${aws_region}
+EOF
+
+mkdir -p /opt/archlens
+git clone --branch ${github_branch} ${github_repo_url} /opt/archlens
+cd /opt/archlens
+
+# Variaveis exportadas para os scripts subsequentes
+cat > /opt/archlens/.bootstrap.env <<EOF
+AWS_REGION=${aws_region}
+ENVIRONMENT=${environment}
+RDS_HOST=${rds_address}
+RDS_MASTER_PASSWORD=${db_master_password}
+S3_BUCKET=${s3_bucket}
+ECR_REGISTRY=${ecr_registry}
+EOF
+chmod 600 /opt/archlens/.bootstrap.env
+
+echo "▶ [5/7] Login no ECR"
+aws ecr get-login-password --region ${aws_region} \
+  | docker login --username AWS --password-stdin ${ecr_registry}
+
+echo "▶ [6/7] Executando bootstrap scripts (RDS + secrets + VK)"
+chmod +x /opt/archlens/infra/scripts/ec2/*.sh
+
+# Cria DBs e users no RDS (idempotente)
+/opt/archlens/infra/scripts/ec2/bootstrap-rds.sh
+
+# Puxa secrets do Secrets Manager e gera .env por servico
+/opt/archlens/infra/scripts/ec2/fetch-secrets.sh
+
+# Sobe dependencias (rabbit, presidio, litellm) primeiro
+docker compose -f /opt/archlens/docker-compose.ec2.yml pull
+docker compose -f /opt/archlens/docker-compose.ec2.yml up -d \
+  rabbitmq presidio-analyzer presidio-anonymizer litellm
+
+# Espera litellm subir e gera virtual keys
+/opt/archlens/infra/scripts/ec2/bootstrap-litellm-vk.sh
+
+# Re-puxa secrets (agora com LLM_API_KEY) e sobe servicos
+/opt/archlens/infra/scripts/ec2/fetch-secrets.sh
+
+docker compose -f /opt/archlens/docker-compose.ec2.yml up -d
+
+echo "▶ [7/7] Transferindo posse do repo para o usuario ubuntu"
+# Permite que deploy.sh via SSH (como ubuntu) rode git/docker sem sudo.
+# ubuntu ja esta no grupo docker (etapa 2). Mantem .bootstrap.env e
+# secrets/* com perms 600 apos a transferencia.
+chown -R ubuntu:ubuntu /opt/archlens
+chmod 600 /opt/archlens/.bootstrap.env
+chmod 700 /opt/archlens/secrets || true
+chmod 600 /opt/archlens/secrets/*.env || true
+
+echo "✅ Bootstrap concluido. Logs em $LOG_FILE"

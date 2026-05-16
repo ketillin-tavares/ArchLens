@@ -42,7 +42,10 @@ RUN apk add --no-cache curl \
  && touch /var/run/nginx.pid \
  && chown nginx:nginx /var/run/nginx.pid
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Permite trocar a config nginx em build time (default: nginx.conf para
+# desenvolvimento local; no deploy EC2 passa-se nginx.ec2.conf).
+ARG NGINX_CONF=nginx.conf
+COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080
