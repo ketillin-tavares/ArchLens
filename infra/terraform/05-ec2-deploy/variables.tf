@@ -112,7 +112,7 @@ variable "github_repo_url" {
 
 variable "github_branch" {
   type        = string
-  default     = "feat/deploy-ec2"
+  default     = "main"
   description = "Branch a ser usada no clone inicial"
 }
 
