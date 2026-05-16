@@ -48,12 +48,13 @@ if [ "${FORCE_VK:-0}" != "1" ]; then
 fi
 
 echo "▶ Aguardando LiteLLM ficar healthy"
+# Usa /health/liveliness (sem auth). O /health exige master key e da 401.
 for i in {1..30}; do
-  if curl -fs "$LITELLM_URL/health" >/dev/null 2>&1; then
+  if curl -fs "$LITELLM_URL/health/liveliness" >/dev/null 2>&1; then
     break
   fi
   if [ "$i" -eq 30 ]; then
-    echo "❌ LiteLLM nao respondeu em /health apos 30 tentativas"
+    echo "❌ LiteLLM nao respondeu em /health/liveliness apos 30 tentativas"
     exit 1
   fi
   sleep 5
