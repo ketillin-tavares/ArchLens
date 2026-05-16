@@ -15,7 +15,7 @@ on:
           - apply
           - destroy
       workspace:
-        description: "Which workspace to target"
+        description: "Which workspace to target ('all' = EKS stack 01..04; 05-ec2-deploy e independente)"
         required: true
         default: "all"
         type: choice
@@ -25,6 +25,7 @@ on:
           - 02-cluster
           - 03-platform
           - 04-frontend
+          - 05-ec2-deploy
       environment:
         description: "Environment (usado p/ descobrir a distribuição CloudFront no step Kong)"
         required: true
@@ -812,3 +813,140 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           kubectl get hpa -n archlens >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 05-ec2-deploy (stack independente do EKS) ──────────────────────
+  # Nao entra em workspace='all' porque cria VPC/RDS/S3 proprios e seria
+  # duplicacao com 01-foundation. Sempre selecionar explicitamente.
+  ec2-plan:
+    name: "05-ec2-deploy (plan)"
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.inputs.action != 'destroy' &&
+      github.event.inputs.workspace == '05-ec2-deploy'
+    defaults:
+      run:
+        working-directory: infra/terraform/05-ec2-deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/05-ec2-deploy/.terraform/providers
+          key: tf-ec2-${{ runner.os }}-${{ hashFiles('infra/terraform/05-ec2-deploy/.terraform.lock.hcl') }}
+          restore-keys: tf-ec2-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: Post plan to summary
+        run: |
+          echo '### 05-ec2-deploy — Terraform Plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -80 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-ec2
+          path: infra/terraform/05-ec2-deploy/tfplan
+          retention-days: 1
+
+  ec2-apply:
+    name: "05-ec2-deploy (apply)"
+    runs-on: ubuntu-latest
+    needs: [ec2-plan]
+    if: >-
+      always() &&
+      needs.ec2-plan.result == 'success' &&
+      github.event.inputs.action == 'apply' &&
+      github.event.inputs.workspace == '05-ec2-deploy'
+    defaults:
+      run:
+        working-directory: infra/terraform/05-ec2-deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: infra/terraform/05-ec2-deploy/.terraform/providers
+          key: tf-ec2-${{ runner.os }}-${{ hashFiles('infra/terraform/05-ec2-deploy/.terraform.lock.hcl') }}
+          restore-keys: tf-ec2-${{ runner.os }}-
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-ec2
+          path: infra/terraform/05-ec2-deploy
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false tfplan
+
+      - name: Post outputs to summary
+        run: |
+          echo '### 05-ec2-deploy — Outputs' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          terraform output -no-color 2>/dev/null | grep -vE "secret_arns|rds_endpoint|rds_address" || true
+          terraform output -no-color 2>/dev/null | grep -vE "secret_arns|rds_endpoint|rds_address" >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Proximos passos:' >> "$GITHUB_STEP_SUMMARY"
+          echo '1. Popular os 9 secrets em AWS Secrets Manager (ver docs/deploy_ec2_guide.md)' >> "$GITHUB_STEP_SUMMARY"
+          echo '2. Configurar GitHub Secrets: EC2_HOST, EC2_SSH_USER, EC2_SSH_KEY, VITE_CLERK_PUBLISHABLE_KEY' >> "$GITHUB_STEP_SUMMARY"
+          echo '3. Disparar workflow "EC2: Build & Deploy" para subir os servicos' >> "$GITHUB_STEP_SUMMARY"
+
+  ec2-destroy:
+    name: "05-ec2-deploy (destroy)"
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.inputs.action == 'destroy' &&
+      github.event.inputs.workspace == '05-ec2-deploy'
+    defaults:
+      run:
+        working-directory: infra/terraform/05-ec2-deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false
