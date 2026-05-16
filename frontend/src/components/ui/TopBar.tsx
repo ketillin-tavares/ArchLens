@@ -2,7 +2,7 @@ import { UserButton } from "@clerk/clerk-react";
 import { TOKENS } from "@/config/tokens";
 import { Wordmark } from "./Wordmark";
 
-export type AppPage = "new" | "results";
+export type AppPage = "new" | "search" | "results";
 
 interface TopBarProps {
   page: AppPage;
@@ -11,6 +11,7 @@ interface TopBarProps {
 
 const TABS: Array<{ key: AppPage; label: string }> = [
   { key: "new", label: "Nova análise" },
+  { key: "search", label: "Buscar" },
   { key: "results", label: "Relatórios" },
 ];
 
