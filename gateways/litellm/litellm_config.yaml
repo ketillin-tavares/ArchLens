@@ -160,6 +160,11 @@ general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
   database_url: "os.environ/LITELLM_DATABASE_URL"
 
+  # Persiste request/response no DB para visualizacao na UI (/ui).
+  # Aumenta o uso de storage no Postgres — em prod com volume alto, considere TTL.
+  store_model_in_db: true
+  store_prompts_in_spend_logs: true
+
   alerting: []
 
 # ══════════════════════════════════════════════════════════════
