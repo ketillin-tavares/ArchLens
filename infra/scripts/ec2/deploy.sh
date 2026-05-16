@@ -48,6 +48,9 @@ echo "▶ [5/7] Garantindo deps up (rabbit/presidio/litellm)"
 docker compose -f "$COMPOSE_FILE" up -d \
   rabbitmq presidio-analyzer presidio-anonymizer litellm
 
+# Garante o user do RabbitMQ (load_definitions nao cria via env vars).
+"$REPO_ROOT/infra/scripts/ec2/ensure-rabbit-user.sh"
+
 # Espera litellm responder antes do VK bootstrap.
 echo "  Aguardando litellm /health/liveliness..."
 for i in {1..30}; do

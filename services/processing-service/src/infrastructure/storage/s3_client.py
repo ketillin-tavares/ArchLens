@@ -23,14 +23,17 @@ class S3StorageClient:
         self._session = aioboto3.Session()
 
     def _get_client_kwargs(self) -> dict:
-        """Retorna os kwargs de configuração para o cliente S3."""
-        return {
-            "service_name": "s3",
-            "endpoint_url": self._settings.endpoint_url,
-            "aws_access_key_id": self._settings.access_key_id,
-            "aws_secret_access_key": self._settings.secret_access_key,
-            "region_name": self._settings.region_name,
-        }
+        """Retorna os kwargs de configuração para o cliente S3.
+
+        Em LocalStack/MinIO passa endpoint + credenciais explícitas.
+        Em S3 real omite ambos para o SDK usar IRSA via credential chain.
+        """
+        kwargs: dict = {"service_name": "s3", "region_name": self._settings.region_name}
+        if self._settings.is_local:
+            kwargs["endpoint_url"] = self._settings.endpoint_url
+            kwargs["aws_access_key_id"] = self._settings.access_key_id
+            kwargs["aws_secret_access_key"] = self._settings.secret_access_key
+        return kwargs
 
     @retry(
         stop=stop_after_attempt(3),
