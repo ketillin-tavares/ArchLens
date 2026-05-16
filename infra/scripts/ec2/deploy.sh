@@ -29,11 +29,14 @@ source "$REPO_ROOT/.bootstrap.env"
 set +a
 
 echo "▶ [1/7] Pull do commit $COMMIT_SHA"
-git fetch --quiet origin
+echo "  whoami: $(whoami)  cwd: $(pwd)"
+echo "  HEAD atual: $(git rev-parse HEAD 2>&1 || echo 'sem git ainda')"
+git fetch origin
 # reset --hard descarta edicoes manuais feitas na EC2 (debug, hotfix
 # experimental). O git remoto e a fonte da verdade — qualquer fix tem
 # que voltar via commit/push pra nao ser perdido no proximo deploy.
-git reset --hard --quiet "$COMMIT_SHA"
+git reset --hard "$COMMIT_SHA"
+echo "  HEAD pos-reset: $(git rev-parse HEAD)"
 
 echo "▶ [2/7] Login no ECR"
 aws ecr get-login-password --region "$AWS_REGION" \
