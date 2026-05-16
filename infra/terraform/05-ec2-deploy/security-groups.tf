@@ -38,6 +38,14 @@ resource "aws_security_group" "ec2" {
     description = "SSH restricted to operator IP"
   }
 
+  ingress {
+    from_port   = 4000
+    to_port     = 4000
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_cidr]
+    description = "LiteLLM UI restricted to operator IP (auth via master key)"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
