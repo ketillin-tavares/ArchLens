@@ -50,14 +50,32 @@ REPORT_JSON=$(fetch report)
 KONG_JSON=$(fetch kong)
 
 # ── Helpers de extracao ─────────────────────────────────────────────────
-db()         { echo "$DB_JSON"         | jq -r ".$1"; }
-rmq()        { echo "$RABBITMQ_JSON"   | jq -r ".$1"; }
-clerk()      { echo "$CLERK_JSON"      | jq -r ".$1"; }
-nr()         { echo "$NEWRELIC_JSON"   | jq -r ".$1"; }
-litellm()    { echo "$LITELLM_JSON"    | jq -r ".$1"; }
-processing() { echo "$PROCESSING_JSON" | jq -r ".$1"; }
-report()     { echo "$REPORT_JSON"     | jq -r ".$1"; }
-kong()       { echo "$KONG_JSON"       | jq -r ".$1"; }
+# Cada helper retorna string vazia (e avisa em stderr) se o valor estiver
+# null/missing — evita escrever literal "null" no .env. Sentinel
+# "PLACEHOLDER" e tratado como vazio com warning explicito.
+extract() {
+  local json="$1"
+  local key="$2"
+  local name="$3"
+  local val
+  val=$(echo "$json" | jq -r ".$key // empty")
+  if [ -z "$val" ] || [ "$val" = "null" ]; then
+    echo "  ⚠️  $name.$key vazio/null em secrets" >&2
+    val=""
+  elif [ "$val" = "PLACEHOLDER" ]; then
+    echo "  ⚠️  $name.$key esta PLACEHOLDER (preencher no Secrets Manager)" >&2
+  fi
+  printf '%s' "$val"
+}
+
+db()         { extract "$DB_JSON"         "$1" "database"; }
+rmq()        { extract "$RABBITMQ_JSON"   "$1" "rabbitmq"; }
+clerk()      { extract "$CLERK_JSON"      "$1" "clerk"; }
+nr()         { extract "$NEWRELIC_JSON"   "$1" "newrelic"; }
+litellm()    { extract "$LITELLM_JSON"    "$1" "litellm"; }
+processing() { extract "$PROCESSING_JSON" "$1" "processing"; }
+report()     { extract "$REPORT_JSON"     "$1" "report"; }
+kong()       { extract "$KONG_JSON"       "$1" "kong"; }
 
 # ── upload-service.env ─────────────────────────────────────────────────
 # Nota: S3_ENDPOINT_URL vazio sinaliza ao S3Settings.is_local que estamos

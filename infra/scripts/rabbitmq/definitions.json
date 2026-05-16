@@ -2,22 +2,6 @@
   "vhosts": [
     { "name": "/" }
   ],
-  "users": [
-    {
-      "name": "archlens",
-      "password": "archlens_dev",
-      "tags": ["administrator"]
-    }
-  ],
-  "permissions": [
-    {
-      "user": "archlens",
-      "vhost": "/",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    }
-  ],
   "exchanges": [
     {
       "name": "analise.events",

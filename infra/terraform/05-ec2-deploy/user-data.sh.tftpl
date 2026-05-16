@@ -8,6 +8,16 @@ set -euxo pipefail
 LOG_FILE=/var/log/archlens-bootstrap.log
 exec > >(tee -a "$LOG_FILE") 2>&1
 
+# trap garante chown mesmo se algum passo falhar — permite SSH/SSM debug
+# como ubuntu sem precisar de sudo manual.
+trap '
+  chown -R ubuntu:ubuntu /opt/archlens 2>/dev/null || true
+  chmod 600 /opt/archlens/.bootstrap.env 2>/dev/null || true
+  chmod 700 /opt/archlens/secrets 2>/dev/null || true
+  chmod 600 /opt/archlens/secrets/*.env 2>/dev/null || true
+  chmod +x /opt/archlens/infra/scripts/ec2/*.sh 2>/dev/null || true
+' EXIT
+
 echo "▶ [1/7] Atualizando sistema e instalando dependencias"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
@@ -43,52 +53,77 @@ EOF
 
 mkdir -p /opt/archlens
 git clone --branch ${github_branch} ${github_repo_url} /opt/archlens
+
+# Permite git rodar como qualquer user em /opt/archlens (apos chown).
+git config --system --add safe.directory /opt/archlens
+
 cd /opt/archlens
 
-# Variaveis exportadas para os scripts subsequentes
+# .bootstrap.env com `export` — assim `source` injeta no environment.
 cat > /opt/archlens/.bootstrap.env <<EOF
-AWS_REGION=${aws_region}
-ENVIRONMENT=${environment}
-RDS_HOST=${rds_address}
-RDS_MASTER_PASSWORD=${db_master_password}
-S3_BUCKET=${s3_bucket}
-ECR_REGISTRY=${ecr_registry}
+export AWS_REGION=${aws_region}
+export ENVIRONMENT=${environment}
+export RDS_HOST=${rds_address}
+export RDS_MASTER_PASSWORD=${db_master_password}
+export S3_BUCKET=${s3_bucket}
+export ECR_REGISTRY=${ecr_registry}
 EOF
 chmod 600 /opt/archlens/.bootstrap.env
 
-echo "▶ [5/7] Login no ECR"
-aws ecr get-login-password --region ${aws_region} \
-  | docker login --username AWS --password-stdin ${ecr_registry}
+# shellcheck disable=SC1091
+source /opt/archlens/.bootstrap.env
 
-echo "▶ [6/7] Executando bootstrap scripts (RDS + secrets + VK)"
+echo "▶ [5/7] Login no ECR"
+aws ecr get-login-password --region "$AWS_REGION" \
+  | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+echo "▶ [6/7] Bootstrap RDS + fetch secrets"
 chmod +x /opt/archlens/infra/scripts/ec2/*.sh
 
 # Cria DBs e users no RDS (idempotente)
 /opt/archlens/infra/scripts/ec2/bootstrap-rds.sh
 
-# Puxa secrets do Secrets Manager e gera .env por servico
+# Puxa secrets do Secrets Manager para /opt/archlens/secrets/
 /opt/archlens/infra/scripts/ec2/fetch-secrets.sh
 
-# Sobe dependencias (rabbit, presidio, litellm) primeiro
-docker compose -f /opt/archlens/docker-compose.ec2.yml pull
-docker compose -f /opt/archlens/docker-compose.ec2.yml up -d \
-  rabbitmq presidio-analyzer presidio-anonymizer litellm
+echo "▶ [7/7] Subindo servicos se houver imagens no ECR"
+# Descobre a tag mais recente publicada. Se ECR estiver vazio (nunca
+# rodou o workflow Build & Deploy), apenas terminamos aqui — operador
+# dispara o workflow e o deploy.sh cuida do up.
+LATEST_TAG=$(aws ecr describe-images \
+  --repository-name archlens-ec2/upload-service \
+  --region "$AWS_REGION" \
+  --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' \
+  --output text 2>/dev/null || echo "None")
 
-# Espera litellm subir e gera virtual keys
-/opt/archlens/infra/scripts/ec2/bootstrap-litellm-vk.sh
+if [ "$LATEST_TAG" = "None" ] || [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+  echo "  ⚠️  Nenhuma imagem em ECR. Dispare o workflow 'EC2: Build & Deploy'."
+else
+  echo "  Usando IMAGE_TAG=$LATEST_TAG"
+  export IMAGE_TAG="$LATEST_TAG"
 
-# Re-puxa secrets (agora com LLM_API_KEY) e sobe servicos
-/opt/archlens/infra/scripts/ec2/fetch-secrets.sh
+  docker compose -f /opt/archlens/docker-compose.ec2.yml pull
 
-docker compose -f /opt/archlens/docker-compose.ec2.yml up -d
+  # Sobe deps primeiro (litellm precisa estar healthy antes do VK bootstrap)
+  docker compose -f /opt/archlens/docker-compose.ec2.yml up -d \
+    rabbitmq presidio-analyzer presidio-anonymizer litellm
 
-echo "▶ [7/7] Transferindo posse do repo para o usuario ubuntu"
-# Permite que deploy.sh via SSH (como ubuntu) rode git/docker sem sudo.
-# ubuntu ja esta no grupo docker (etapa 2). Mantem .bootstrap.env e
-# secrets/* com perms 600 apos a transferencia.
-chown -R ubuntu:ubuntu /opt/archlens
-chmod 600 /opt/archlens/.bootstrap.env
-chmod 700 /opt/archlens/secrets || true
-chmod 600 /opt/archlens/secrets/*.env || true
+  # Espera litellm responder (sem auth)
+  for i in {1..30}; do
+    if curl -fs http://localhost:4000/health/liveliness >/dev/null 2>&1; then
+      break
+    fi
+    sleep 5
+  done
+
+  # Gera VKs (no-op se ja existem)
+  /opt/archlens/infra/scripts/ec2/bootstrap-litellm-vk.sh || true
+
+  # Re-fetch para puxar LLM_API_KEY recem-gerada
+  /opt/archlens/infra/scripts/ec2/fetch-secrets.sh
+
+  # Sobe tudo
+  docker compose -f /opt/archlens/docker-compose.ec2.yml up -d
+fi
 
 echo "✅ Bootstrap concluido. Logs em $LOG_FILE"

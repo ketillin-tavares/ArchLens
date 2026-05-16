@@ -27,6 +27,19 @@ source "$REPO_ROOT/.bootstrap.env"
 
 readonly DB_SECRET="archlens/${ENVIRONMENT}/database"
 
+echo "▶ Aguardando RDS aceitar conexoes em $RDS_HOST:5432"
+for i in {1..30}; do
+  if pg_isready -h "$RDS_HOST" -U archlens -q -t 5; then
+    echo "  ✓ RDS pronto"
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "❌ RDS nao respondeu em 5 minutos"
+    exit 1
+  fi
+  sleep 10
+done
+
 echo "▶ Buscando senhas dos users no Secrets Manager"
 DB_JSON=$(aws secretsmanager get-secret-value \
   --region "$AWS_REGION" \
