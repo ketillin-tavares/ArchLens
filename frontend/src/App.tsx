@@ -4,6 +4,7 @@ import { TopBar, type AppPage } from "@/components/ui/TopBar";
 import { SignInScreen } from "@/components/auth/SignInScreen";
 import { NewAnalysisPage } from "@/pages/NewAnalysisPage";
 import { ResultsPage } from "@/pages/ResultsPage";
+import { SearchReportPage } from "@/pages/SearchReportPage";
 import { useAuthSetup } from "@/hooks/useAuthSetup";
 
 export function App(): JSX.Element {
@@ -43,6 +44,7 @@ function AuthenticatedApp(): JSX.Element {
           onCancel={() => setPage("new")}
         />
       )}
+      {page === "search" && <SearchReportPage onFound={handleStarted} />}
       {page === "results" &&
         (analiseId ? (
           <ResultsPage
