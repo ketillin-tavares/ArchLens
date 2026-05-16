@@ -54,6 +54,9 @@ create_user_and_db() {
 
   echo "▶ Garantindo user '$user' e database '$db'"
 
+  # PG16+ exige que o master user (archlens) tenha o role do dono concedido
+  # antes de criar um DB com OWNER outro_role. No RDS, o master nao e true
+  # superuser, entao precisamos do GRANT explicito.
   psql -v ON_ERROR_STOP=1 -h "$RDS_HOST" -U archlens -d archlens <<SQL
 DO \$\$
 BEGIN
@@ -64,6 +67,8 @@ BEGIN
   END IF;
 END
 \$\$;
+
+GRANT $user TO archlens;
 SQL
 
   if ! psql -h "$RDS_HOST" -U archlens -d archlens -tAc \
