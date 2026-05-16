@@ -108,6 +108,9 @@ else
   docker compose -f /opt/archlens/docker-compose.ec2.yml up -d \
     rabbitmq presidio-analyzer presidio-anonymizer litellm
 
+  # Garante o user do RabbitMQ (load_definitions nao cria via env vars)
+  /opt/archlens/infra/scripts/ec2/ensure-rabbit-user.sh
+
   # Espera litellm responder (sem auth)
   for i in {1..30}; do
     if curl -fs http://localhost:4000/health/liveliness >/dev/null 2>&1; then
