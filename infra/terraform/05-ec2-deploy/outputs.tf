@@ -1,26 +1,27 @@
 # ── EC2 ────────────────────────────────────────────────────────────────
+# Outputs null quando bootstrap_services=false (EC2 ainda nao criada).
 output "ec2_public_dns" {
-  value       = aws_eip.archlens.public_dns
-  description = "DNS publico fixo da EC2 (Opcao 1: usar este URL para acessar o frontend)"
+  value       = try(aws_eip.archlens[0].public_dns, null)
+  description = "DNS publico fixo da EC2 (null ate bootstrap_services=true)"
 }
 
 output "ec2_public_ip" {
-  value       = aws_eip.archlens.public_ip
+  value       = try(aws_eip.archlens[0].public_ip, null)
   description = "Elastic IP fixo da EC2"
 }
 
 output "ec2_instance_id" {
-  value       = aws_instance.archlens.id
+  value       = try(aws_instance.archlens[0].id, null)
   description = "ID da EC2 (usar com SSM Session Manager: aws ssm start-session --target <id>)"
 }
 
 output "frontend_url" {
-  value       = "http://${aws_eip.archlens.public_dns}"
+  value       = try("http://${aws_eip.archlens[0].public_dns}", null)
   description = "URL completa do frontend (HTTP only — Clerk DEV mode)"
 }
 
 output "kong_api_url" {
-  value       = "http://${aws_eip.archlens.public_dns}:8000"
+  value       = try("http://${aws_eip.archlens[0].public_dns}:8000", null)
   description = "URL do Kong API gateway"
 }
 

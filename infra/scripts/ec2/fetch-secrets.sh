@@ -174,8 +174,7 @@ cat > "$SECRETS_DIR/litellm.env" <<EOF
 LITELLM_DATABASE_URL=postgresql://litellm_user:$(db litellm_password)@$RDS_HOST:5432/litellm_db
 LITELLM_MASTER_KEY=$(litellm MASTER_KEY)
 STORE_MODEL_IN_DB=True
-OPENAI_API_KEY=$(litellm openai_api_key)
-ANTHROPIC_API_KEY=$(litellm anthropic_api_key)
+GEMINI_API_KEY=$(litellm gemini_api_key)
 EOF
 
 # ── rabbitmq.env ───────────────────────────────────────────────────────
@@ -186,9 +185,11 @@ RABBITMQ_DEFAULT_PASS=$(rmq password)
 EOF
 
 # ── kong.env ───────────────────────────────────────────────────────────
+# KONG_JWT_SECRET: secret HS256 usado pelo plugin jwt do Kong para validar
+# os tokens emitidos pelo Clerk. Lido pelo docker-entrypoint.sh do Kong.
 echo "▶ Gerando kong.env"
 cat > "$SECRETS_DIR/kong.env" <<EOF
-KONG_API_KEY=$(kong KONG_API_KEY)
+KONG_JWT_SECRET=$(kong KONG_JWT_SECRET)
 CLERK_ISSUER_URL=$(clerk CLERK_ISSUER_URL)
 EOF
 

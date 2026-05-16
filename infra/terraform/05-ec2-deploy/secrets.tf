@@ -21,10 +21,10 @@ locals {
     aws        = jsonencode({ s3_bucket_name = "PLACEHOLDER", region = "us-east-2" })
     clerk      = jsonencode({ CLERK_ISSUER_URL = "PLACEHOLDER", CLERK_JWT_TEMPLATE = "archlens", VITE_CLERK_PUBLISHABLE_KEY = "PLACEHOLDER" })
     newrelic   = jsonencode({ license_key = "PLACEHOLDER", account_id = "PLACEHOLDER", user_key = "PLACEHOLDER" })
-    litellm    = jsonencode({ MASTER_KEY = "PLACEHOLDER", openai_api_key = "PLACEHOLDER", anthropic_api_key = "PLACEHOLDER" })
+    litellm    = jsonencode({ MASTER_KEY = "PLACEHOLDER", gemini_api_key = "PLACEHOLDER" })
     processing = jsonencode({ LLM_API_KEY = "PLACEHOLDER" })
     report     = jsonencode({ LLM_API_KEY = "PLACEHOLDER" })
-    kong       = jsonencode({ KONG_API_KEY = "PLACEHOLDER" })
+    kong       = jsonencode({ KONG_JWT_SECRET = "PLACEHOLDER" })
   }
 }
 
