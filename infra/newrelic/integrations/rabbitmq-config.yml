@@ -3,8 +3,13 @@ integrations:
     env:
       HOSTNAME: rabbitmq
       PORT: 15672
-      USERNAME: archlens
-      PASSWORD: archlens_dev
+      # USERNAME/PASSWORD vem do env do proprio container `newrelic-infra`
+      # via interpolacao {{VAR}} do agent. Em prod sao injetadas pelo
+      # env_file: ./secrets/rabbitmq.env (Secrets Manager). Em dev local
+      # vem do bloco environment: do docker-compose.yml. Mantem segredos
+      # fora do git e fora da imagem do agent.
+      USERNAME: '{{RABBITMQ_DEFAULT_USER}}'
+      PASSWORD: '{{RABBITMQ_DEFAULT_PASS}}'
       USE_SSL: "false"
       # nri-rabbitmq exige JSON array string nos campos QUEUES/EXCHANGES/VHOSTS.
       # Lista YAML ou CSV simples leva a "invalid character ... looking for beginning of value".

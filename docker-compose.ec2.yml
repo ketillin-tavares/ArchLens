@@ -278,6 +278,9 @@ services:
       NRIA_CONTAINER_CACHE_METADATA_LIMIT: 120
     env_file:
       - ./secrets/newrelic.env
+      # Expoe RABBITMQ_DEFAULT_USER/PASS no env do agent para interpolacao
+      # {{VAR}} em integrations.d/rabbitmq-config.yml (auth no management API).
+      - ./secrets/rabbitmq.env
     volumes:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock
