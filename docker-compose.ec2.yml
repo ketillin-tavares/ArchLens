@@ -71,6 +71,12 @@ services:
     image: ${ECR_REGISTRY}/archlens-ec2/litellm-gateway:${IMAGE_TAG:-latest}
     container_name: litellm
     hostname: litellm
+    # Bind so 127.0.0.1 (loopback do host EC2) — bootstrap-litellm-vk.sh roda
+    # no host e precisa alcancar o LiteLLM. Tambem permite port-forward via
+    # SSM (aws ssm start-session ... portNumber=4000) para acessar a UI.
+    # NAO exposto na internet — Security Group nao tem ingress para 4000.
+    ports:
+      - "127.0.0.1:4000:4000"
     env_file:
       - ./secrets/litellm.env
     environment:
