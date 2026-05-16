@@ -125,7 +125,12 @@ jobs:
             EXTRA_ARGS="--build-arg NGINX_CONF=nginx.ec2.conf \
                        --build-arg VITE_KONG_BASE_URL=/api \
                        --build-arg VITE_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }} \
-                       --build-arg VITE_CLERK_JWT_TEMPLATE=${{ vars.VITE_CLERK_JWT_TEMPLATE || 'archlens' }}"
+                       --build-arg VITE_CLERK_JWT_TEMPLATE=${{ vars.VITE_CLERK_JWT_TEMPLATE || 'archlens' }} \
+                       --build-arg VITE_NEWRELIC_LICENSE_KEY=${{ secrets.VITE_NEWRELIC_LICENSE_KEY }} \
+                       --build-arg VITE_NEWRELIC_BROWSER_APP_ID=${{ secrets.VITE_NEWRELIC_BROWSER_APP_ID }} \
+                       --build-arg VITE_NEWRELIC_ACCOUNT_ID=${{ secrets.VITE_NEWRELIC_ACCOUNT_ID }} \
+                       --build-arg VITE_NEWRELIC_BROWSER_AGENT_ID=${{ secrets.VITE_NEWRELIC_BROWSER_AGENT_ID }} \
+                       --build-arg VITE_NEWRELIC_TRUST_KEY=${{ secrets.VITE_NEWRELIC_TRUST_KEY }}"
           fi
 
           docker build \

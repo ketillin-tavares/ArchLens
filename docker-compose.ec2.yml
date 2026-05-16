@@ -241,6 +241,9 @@ services:
     image: ${ECR_REGISTRY}/archlens-ec2/frontend:${IMAGE_TAG:-latest}
     container_name: frontend
     hostname: frontend
+    # As VITE_NEWRELIC_* sao injetadas no index.html em build time pelo Vite.
+    # No deploy EC2 a imagem ja vem do ECR pronta — para mudar a chave,
+    # rebuild da imagem do frontend e push pro ECR (via CI/CD).
     ports:
       - "80:8080"
     depends_on:
