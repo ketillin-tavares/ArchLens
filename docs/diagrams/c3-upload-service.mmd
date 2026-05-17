@@ -1,0 +1,72 @@
+%% Diagrama: ArchLens — Upload Service
+%% Nível C4: C3 — Componentes (Upload Service)
+%% Descrição: Estrutura interna do Upload Service organizada em Clean Architecture / Hexagonal.
+%%             Camadas: adapters de entrada → use cases → domínio → ports → adapters de saída.
+
+C4Component
+    title Diagrama de Componentes (C3) — Upload Service
+
+    Container_Ext(kong, "Kong", "API Gateway", "Encaminha requisições HTTP autenticadas para o serviço")
+    ContainerQueue_Ext(rabbitmq, "RabbitMQ", "Message Broker", "Exchange analise.events (topic). Entrega eventos de status e recebe DiagramaEnviado")
+    ContainerDb_Ext(postgres, "PostgreSQL", "upload_db", "Database dedicado: tabelas diagrama e analise")
+    Container_Ext(s3, "Object Storage", "LocalStack / AWS S3", "Bucket archlens-diagramas — armazena diagramas e relatórios")
+
+    Container_Boundary(upload_service, "Upload Service") {
+
+        %% === ADAPTERS DE ENTRADA ===
+        Component(analise_router, "AnaliseRouter", "FastAPI Router (HTTP Adapter)", "Expõe: POST /v1/analises (202), GET /v1/analises/{id} (200), GET /v1/analises/{id}/relatorio/download (200), POST /v1/analises/{id}/retry (202), GET /health (200)")
+        Component(status_consumer, "StatusUpdateConsumer", "aio-pika Consumer (AMQP Adapter)", "Consome da fila upload-service.status-updates. Routing keys: analise.processamento.iniciado, analise.processamento.concluida, analise.processamento.falhou, analise.relatorio.gerado")
+
+        %% === USE CASES ===
+        Component(submit_diagram_uc, "SubmitDiagram", "Use Case", "Valida tipo e tamanho do arquivo. Faz upload no S3. Persiste entidades Diagrama e Analise. Publica evento DiagramaEnviado.")
+        Component(get_status_uc, "GetAnalysisStatus", "Use Case", "Consulta e retorna o status atual da Analise pelo ID.")
+        Component(download_uc, "DownloadRelatorio", "Use Case", "Gera e retorna presigned URL do S3 para download do relatório Markdown.")
+        Component(retry_uc, "RetryAnalysis", "Use Case", "Reseta Analise em status ERRO para RECEBIDO e republica o evento DiagramaEnviado.")
+        Component(handle_status_uc, "HandleStatusUpdate", "Use Case", "Atualiza o status da Analise e o campo relatorio_s3_key conforme o evento recebido da fila.")
+
+        %% === DOMÍNIO ===
+        Component(analise_entity, "Analise", "Domain Entity (Pydantic BaseModel)", "Ciclo de vida da análise: status RECEBIDO, PROCESSANDO, ANALISADO ou ERRO. Campos: id, diagrama_id, status, erro_detalhe, relatorio_s3_key, criado_em, atualizado_em.")
+        Component(diagrama_entity, "Diagrama", "Domain Entity (Pydantic BaseModel)", "Metadados do arquivo enviado. Campos: id, nome_original, content_type, tamanho_bytes, storage_path (s3://...), criado_em.")
+
+        %% === PORTS (interfaces abstratas) ===
+        Component(file_storage_port, "FileStoragePort", "Port (abc.ABC)", "Contrato de armazenamento de arquivos: upload_file(key, data, content_type), generate_presigned_url(key, expiry).")
+        Component(event_publisher_port, "EventPublisherPort", "Port (abc.ABC)", "Contrato de publicação de eventos: publish(routing_key, event).")
+        Component(analise_repo_port, "AnaliseRepositoryPort", "Port (abc.ABC)", "Contrato de persistência de Analise: save(analise), find_by_id(id), update(analise).")
+        Component(diagrama_repo_port, "DiagramaRepositoryPort", "Port (abc.ABC)", "Contrato de persistência de Diagrama: save(diagrama), find_by_id(id).")
+
+        %% === ADAPTERS DE SAÍDA ===
+        Component(s3_gateway, "S3FileStorageGateway", "Output Adapter (aioboto3)", "Implementa FileStoragePort. Integra com LocalStack em desenvolvimento e AWS S3 em produção via variável S3_ENDPOINT_URL.")
+        Component(rabbitmq_publisher, "RabbitMQEventPublisherGateway", "Output Adapter (aio-pika)", "Implementa EventPublisherPort. Publica no exchange analise.events com routing key analise.diagrama.enviado.")
+        Component(analise_repo, "SQLAlchemyAnaliseRepository", "Output Adapter (SQLAlchemy async)", "Implementa AnaliseRepositoryPort. Lê e escreve registros na tabela analise do upload_db.")
+        Component(diagrama_repo, "SQLAlchemyDiagramaRepository", "Output Adapter (SQLAlchemy async)", "Implementa DiagramaRepositoryPort. Lê e escreve registros na tabela diagrama do upload_db.")
+    }
+
+    Rel(kong, analise_router, "Encaminha requisições HTTP autenticadas", "HTTP, REST")
+    Rel(rabbitmq, status_consumer, "Entrega eventos de atualização de status", "AMQP")
+
+    Rel(analise_router, submit_diagram_uc, "Delega submissão do diagrama")
+    Rel(analise_router, get_status_uc, "Delega consulta de status")
+    Rel(analise_router, download_uc, "Delega geração de URL de download")
+    Rel(analise_router, retry_uc, "Delega retentativa de análise")
+    Rel(status_consumer, handle_status_uc, "Delega atualização de status")
+
+    Rel(submit_diagram_uc, file_storage_port, "Usa — armazena diagrama no S3")
+    Rel(submit_diagram_uc, event_publisher_port, "Usa — publica DiagramaEnviado")
+    Rel(submit_diagram_uc, analise_repo_port, "Usa — persiste Analise")
+    Rel(submit_diagram_uc, diagrama_repo_port, "Usa — persiste Diagrama")
+    Rel(get_status_uc, analise_repo_port, "Usa — consulta Analise por ID")
+    Rel(download_uc, analise_repo_port, "Usa — obtém relatorio_s3_key")
+    Rel(download_uc, file_storage_port, "Usa — gera presigned URL")
+    Rel(retry_uc, analise_repo_port, "Usa — reseta status da Analise")
+    Rel(retry_uc, event_publisher_port, "Usa — republica DiagramaEnviado")
+    Rel(handle_status_uc, analise_repo_port, "Usa — atualiza Analise")
+
+    Rel(file_storage_port, s3_gateway, "Implementado por")
+    Rel(event_publisher_port, rabbitmq_publisher, "Implementado por")
+    Rel(analise_repo_port, analise_repo, "Implementado por")
+    Rel(diagrama_repo_port, diagrama_repo, "Implementado por")
+
+    Rel(s3_gateway, s3, "Armazena e gera URLs para arquivos", "HTTPS, S3 API")
+    Rel(rabbitmq_publisher, rabbitmq, "Publica DiagramaEnviado", "AMQP")
+    Rel(analise_repo, postgres, "Lê e escreve registros de Analise", "TCP/SQL")
+    Rel(diagrama_repo, postgres, "Lê e escreve registros de Diagrama", "TCP/SQL")
