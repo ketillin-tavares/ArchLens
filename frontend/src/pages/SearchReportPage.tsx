@@ -9,7 +9,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface SearchReportPageProps {
-  onFound: (analiseId: string) => void;
+  readonly onFound: (analiseId: string) => void;
 }
 
 export function SearchReportPage({
