@@ -6,7 +6,7 @@
 
 | Arquivo | Descrição |
 |---|---|
-| `dashboard.json` | Dashboard completo com 6 páginas — importar via NerdGraph API |
+| `dashboard.json` | Dashboard completo com 7 páginas — importar via NerdGraph API |
 | `alerts.md` | Guia completo de alertas com NRQL, thresholds e configuração |
 
 ---
@@ -64,12 +64,12 @@ mutation CreateDashboard($dashboard: DashboardInput!) {
 | Página | Conteúdo |
 |---|---|
 | **Visão Geral** | Golden signals: throughput, error rate, latência E2E, análises por status, AI confidence |
-| **Upload Service** | APM, status das análises, tamanho dos uploads, tempo E2E, top erros, **retry & download endpoints** |
+| **Upload Service** | APM, status das análises, tamanho dos uploads, tempo E2E, top erros, retry & download endpoints |
 | **Processing Service (AI)** | Latência pipeline, confiança, componentes/riscos, retentativas, eventos AnaliseSucesso/AnaliseFalha |
 | **Report Service** | Relatórios gerados, tempo de geração, duplicados, consultas, erros |
-| **Infraestrutura & Mensageria** | Containers CPU/mem/rede, RabbitMQ queues, DLQs, PostgreSQL |
-| **Logs & Erros** | Log volume por serviço/nível (loguru → stdlib → NR agent), erros em tempo real, top exceções, spans com erro |
-| **Distributed Tracing** | Duração de spans por serviço, traces com erro, operações DB/AMQP |
+| **Infraestrutura & Mensageria** | Containers CPU/mem/rede, RabbitMQ queues e DLQs, PostgreSQL query time |
+| **Logs & Erros** | Volume de logs por serviço e nível, erros APM em tempo real, top exceções, spans com erro (distributed tracing) |
+| **AWS Infrastructure** | RDS (CPU, conexões, storage, IOPS, latência), S3 (tamanho, objetos, requests, latência), EC2 (CloudWatch + newrelic-infra: CPU, memória, disco, load average, containers) |
 
 ---
 

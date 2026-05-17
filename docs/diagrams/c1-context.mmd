@@ -1,0 +1,24 @@
+%% Diagrama: ArchLens — Sistema de Análise de Arquitetura com IA
+%% Nível C4: C1 — Contexto (System Context)
+%% Descrição: Visão de alto nível do sistema ArchLens como caixa única e seus atores/sistemas externos
+
+C4Context
+    title Diagrama de Contexto (C1) — ArchLens
+
+    Person(usuario, "Arquiteto / Engenheiro de Software", "Envia diagramas de arquitetura para análise e consulta os relatórios técnicos gerados")
+
+    System(archlens, "ArchLens", "Recebe diagramas de arquitetura (PNG, JPEG, PDF), processa de forma assíncrona com IA e gera relatórios técnicos com componentes identificados, riscos arquiteturais e recomendações")
+
+    System_Ext(clerk, "Clerk", "Provedor de identidade. Autentica usuários e emite JWTs validados pelo API Gateway.")
+    System_Ext(gemini, "Google Gemini API", "Provedor de LLM. Processa imagens e textos para identificar componentes e riscos arquiteturais. Modelos: Gemini 2.5 Flash e Gemini 3.1 Flash Lite.")
+    System_Ext(newrelic, "New Relic", "Plataforma de observabilidade. Coleta métricas APM dos microsserviços, logs, distributed traces e dados de browser (RUM).")
+    System_Ext(aws, "AWS", "Plataforma cloud de produção. Hospeda a aplicação (EC2 Spot t3.large), banco relacional (RDS PostgreSQL 18), object storage (S3), registry de imagens (ECR) e cofre de segredos (Secrets Manager).")
+
+    Rel(usuario, archlens, "Envia diagrama (PNG, JPEG ou PDF, até 10 MB) e consulta relatório técnico gerado", "HTTPS")
+    Rel(usuario, clerk, "Realiza login e obtém token de acesso", "HTTPS")
+    Rel(clerk, archlens, "Fornece JWT para autorização de requisições via API Gateway", "HTTPS / JWKS")
+    Rel(archlens, gemini, "Envia imagens e prompts estruturados para análise de componentes e riscos", "HTTPS")
+    Rel(archlens, newrelic, "Envia métricas, traces, logs e dados de browser para monitoramento", "HTTPS")
+    Rel(archlens, aws, "Hospeda serviços, armazena diagramas e relatórios, persiste dados e gerencia segredos em produção", "HTTPS / TLS")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

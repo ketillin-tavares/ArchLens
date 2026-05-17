@@ -1,0 +1,62 @@
+%% Diagrama: ArchLens — Report Service
+%% Nível C4: C3 — Componentes (Report Service)
+%% Descrição: Estrutura interna do Report Service organizada em Clean Architecture / Hexagonal.
+%%             Consome AnaliseConcluida, gera Markdown narrativo via LLM, armazena no S3 e notifica o Upload Service.
+%%             Camadas: adapters de entrada → use cases → domínio → ports → adapters de saída.
+
+C4Component
+    title Diagrama de Componentes (C3) — Report Service
+
+    Container_Ext(kong, "Kong", "API Gateway", "Encaminha consultas HTTP de relatório para o serviço")
+    ContainerQueue_Ext(rabbitmq, "RabbitMQ", "Message Broker", "Exchange analise.events (topic)")
+    Container_Ext(litellm, "LiteLLM Gateway", "LLM Proxy", "Proxy com guardrails. Modelo utilizado: archlens-analyzer")
+    ContainerDb_Ext(postgres, "PostgreSQL", "report_db", "Database dedicado: tabela relatorio")
+    Container_Ext(s3, "Object Storage", "LocalStack / AWS S3", "Bucket archlens-diagramas — destino dos relatórios Markdown gerados")
+
+    Container_Boundary(report_service, "Report Service") {
+
+        %% === ADAPTERS DE ENTRADA ===
+        Component(relatorio_router, "RelatorioRouter", "FastAPI Router (HTTP Adapter)", "Expõe: GET /v1/relatorios/{analise_id} (200) — retorna o relatório gerado. GET /health (200).")
+        Component(analise_consumer, "AnaliseConcluídaConsumer", "aio-pika Consumer (AMQP Adapter)", "Consome da fila report-service.reports. Routing key: analise.processamento.concluida. Recebe lista de Componentes e Riscos do processamento.")
+
+        %% === USE CASES ===
+        Component(generate_report_uc, "GenerateReport", "Use Case", "Verifica idempotência (não regera se já existe). Calcula estatísticas (contagem por severidade). Gera narrativa Markdown via LLM. Armazena Markdown no S3. Persiste entidade Relatorio. Publica RelatorioGerado.")
+        Component(get_report_uc, "GetReport", "Use Case", "Retorna o Relatorio associado ao analise_id informado.")
+
+        %% === DOMÍNIO ===
+        Component(relatorio_entity, "Relatorio", "Domain Entity (Pydantic BaseModel)", "Relatório técnico gerado. Campos: id, analise_id, titulo, resumo, conteudo (JSON com componentes, riscos e estatísticas), s3_key (caminho do Markdown no S3), criado_em.")
+
+        %% === PORTS (interfaces abstratas) ===
+        Component(report_writer_port, "MarkdownReportWriterPort", "Port (abc.ABC)", "Contrato de geração de relatório: write(componentes, riscos, estatisticas) → str (Markdown).")
+        Component(file_storage_port, "FileStoragePort", "Port (abc.ABC)", "Contrato de armazenamento de arquivos: upload_file(key, data, content_type).")
+        Component(event_publisher_port, "EventPublisherPort", "Port (abc.ABC)", "Contrato de publicação de eventos: publish(routing_key, event).")
+        Component(relatorio_repo_port, "RelatorioRepositoryPort", "Port (abc.ABC)", "Contrato de persistência: save(relatorio), find_by_analise_id(analise_id).")
+
+        %% === ADAPTERS DE SAÍDA ===
+        Component(report_writer_gateway, "ReportWriterGateway", "Output Adapter (pydantic-ai 1.38.0)", "Implementa MarkdownReportWriterPort. Chama o modelo archlens-analyzer via LiteLLM para gerar narrativa Markdown estruturada com componentes, riscos e recomendações.")
+        Component(s3_gateway, "S3FileStorageGateway", "Output Adapter (aioboto3 15.5)", "Implementa FileStoragePort. Armazena o relatório Markdown no caminho relatorios/{analise_id}/relatorio.md no bucket archlens-diagramas.")
+        Component(rabbitmq_publisher, "RabbitMQEventPublisherGateway", "Output Adapter (aio-pika)", "Implementa EventPublisherPort. Publica RelatorioGerado com routing key analise.relatorio.gerado, incluindo analise_id, relatorio_id e s3_key.")
+        Component(relatorio_repo, "SQLAlchemyRelatorioRepository", "Output Adapter (SQLAlchemy async)", "Implementa RelatorioRepositoryPort. Lê e escreve registros na tabela relatorio do report_db.")
+    }
+
+    Rel(kong, relatorio_router, "Encaminha consultas HTTP de relatório", "HTTP, REST")
+    Rel(rabbitmq, analise_consumer, "Entrega AnaliseConcluida com componentes e riscos", "AMQP")
+
+    Rel(relatorio_router, get_report_uc, "Delega consulta de relatório por analise_id")
+    Rel(analise_consumer, generate_report_uc, "Delega geração do relatório")
+
+    Rel(generate_report_uc, relatorio_repo_port, "Usa — verifica idempotência e persiste Relatorio")
+    Rel(generate_report_uc, report_writer_port, "Usa — gera narrativa Markdown via LLM")
+    Rel(generate_report_uc, file_storage_port, "Usa — armazena Markdown no S3")
+    Rel(generate_report_uc, event_publisher_port, "Usa — publica RelatorioGerado")
+    Rel(get_report_uc, relatorio_repo_port, "Usa — consulta Relatorio por analise_id")
+
+    Rel(report_writer_port, report_writer_gateway, "Implementado por")
+    Rel(file_storage_port, s3_gateway, "Implementado por")
+    Rel(event_publisher_port, rabbitmq_publisher, "Implementado por")
+    Rel(relatorio_repo_port, relatorio_repo, "Implementado por")
+
+    Rel(report_writer_gateway, litellm, "Chama archlens-analyzer para geração do relatório Markdown", "HTTP, REST")
+    Rel(s3_gateway, s3, "Armazena relatório Markdown gerado", "HTTPS, S3 API")
+    Rel(rabbitmq_publisher, rabbitmq, "Publica RelatorioGerado — notifica Upload Service", "AMQP")
+    Rel(relatorio_repo, postgres, "Lê e escreve registros de Relatorio", "TCP/SQL")

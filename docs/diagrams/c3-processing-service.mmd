@@ -1,0 +1,76 @@
+%% Diagrama: ArchLens — Processing Service
+%% Nível C4: C3 — Componentes (Processing Service)
+%% Descrição: Estrutura interna do Processing Service organizada em Clean Architecture / Hexagonal.
+%%             Pipeline multiagente: ExtractorAgent (visão) + AnalyzerAgent (texto) + JudgeAgent (opcional).
+%%             Camadas: adapters de entrada → use cases → domínio → ports → adapters de saída.
+
+C4Component
+    title Diagrama de Componentes (C3) — Processing Service
+
+    Container_Ext(kong, "Kong", "API Gateway", "Encaminha consultas HTTP de processamento para o serviço")
+    ContainerQueue_Ext(rabbitmq, "RabbitMQ", "Message Broker", "Exchange analise.events (topic)")
+    Container_Ext(litellm, "LiteLLM Gateway", "LLM Proxy", "Proxy com guardrails. Modelos: archlens-vision e archlens-analyzer")
+    ContainerDb_Ext(postgres, "PostgreSQL", "processing_db", "Database dedicado: tabelas processamento, componente e risco")
+    Container_Ext(s3, "Object Storage", "LocalStack / AWS S3", "Bucket archlens-diagramas — fonte dos diagramas originais")
+
+    Container_Boundary(processing_service, "Processing Service") {
+
+        %% === ADAPTERS DE ENTRADA ===
+        Component(processamento_router, "ProcessamentoRouter", "FastAPI Router (HTTP Adapter)", "Expõe: GET /v1/processamentos/{id} (200) — retorna resultado do processamento. GET /health (200).")
+        Component(diagrama_consumer, "DiagramaEnviadoConsumer", "aio-pika Consumer (AMQP Adapter)", "Consome da fila processing-service.pipeline. Routing key: analise.diagrama.enviado. QoS prefetch: 10.")
+
+        %% === USE CASES ===
+        Component(process_diagram_uc, "ProcessDiagram", "Use Case", "Orquestra o pipeline completo: (1) baixa diagrama do S3, (2) converte PDF em PNG se necessário, (3) executa pipeline LLM multiagente, (4) persiste Processamento com Componentes e Riscos, (5) publica eventos de conclusão ou falha.")
+        Component(get_processing_uc, "GetProcessingResult", "Use Case", "Retorna o resultado do Processamento (incluindo Componentes e Riscos identificados) por ID.")
+
+        %% === DOMÍNIO ===
+        Component(processamento_entity, "Processamento", "Domain Entity (Pydantic BaseModel)", "Ciclo de vida do processamento: status PENDENTE, EXECUTANDO, CONCLUIDO ou ERRO. Campos: id, analise_id, status, tentativas, iniciado_em, concluido_em, erro_detalhe.")
+        Component(componente_entity, "Componente", "Domain Entity (Pydantic BaseModel)", "Componente arquitetural identificado pelo ExtractorAgent. Campos: id, processamento_id, nome, tipo, confianca (0.0 a 1.0), metadata.")
+        Component(risco_entity, "Risco", "Domain Entity (Pydantic BaseModel)", "Risco arquitetural identificado pelo AnalyzerAgent. Campos: id, processamento_id, descricao, severidade (baixa, media, alta, critica), recomendacao_descricao, recomendacao_prioridade, componentes_afetados.")
+
+        %% === PORTS (interfaces abstratas) ===
+        Component(image_processor_port, "ImageProcessorPort", "Port (abc.ABC)", "Contrato de processamento de imagem: process(raw_bytes, content_type) → image_bytes (PNG).")
+        Component(pipeline_port, "AnalysisPipelinePort", "Port (abc.ABC)", "Contrato do pipeline de análise: run(image_bytes) → (lista de Componente, lista de Risco).")
+        Component(llm_client_port, "LLMClientPort", "Port (abc.ABC)", "Contrato para chamada estruturada ao LLM: analyze(model, prompt, image_bytes) → structured_output.")
+        Component(file_storage_port, "FileStoragePort", "Port (abc.ABC)", "Contrato de download de arquivos: download_file(key) → bytes.")
+        Component(event_publisher_port, "EventPublisherPort", "Port (abc.ABC)", "Contrato de publicação de eventos: publish(routing_key, event).")
+        Component(processamento_repo_port, "ProcessamentoRepositoryPort", "Port (abc.ABC)", "Contrato de persistência: save(processamento), save_componentes(lista), save_riscos(lista), find_by_id(id).")
+
+        %% === ADAPTERS DE SAÍDA ===
+        Component(fitz_gateway, "FitzImageProcessorGateway", "Output Adapter (PyMuPDF 1.25, Pillow 11)", "Implementa ImageProcessorPort. Converte PDF em PNG renderizando a primeira página (DPI configurável). Valida e normaliza imagens PNG e JPEG.")
+        Component(multiagent_pipeline, "MultiAgentPipelineGateway", "Output Adapter (pydantic-ai, padrão com ENABLE_MULTIAGENT=true)", "Implementa AnalysisPipelinePort. Orquestra ExtractorAgent (archlens-vision, identifica componentes via visão) e AnalyzerAgent (archlens-analyzer, identifica riscos via texto). JudgeAgent opcional (ENABLE_JUDGE=false por padrão).")
+        Component(single_pipeline, "SingleCallPipelineGateway", "Output Adapter (pydantic-ai, alternativo)", "Implementa AnalysisPipelinePort. Extrai componentes e riscos em uma única chamada ao LLM. Usado quando ENABLE_MULTIAGENT=false.")
+        Component(llm_client_gateway, "PydanticAILLMClientGateway", "Output Adapter (pydantic-ai 0.1.0)", "Implementa LLMClientPort. Chama o LiteLLM Gateway com structured output via pydantic-ai. Gerencia prompts e parsing de resposta JSON.")
+        Component(s3_gateway, "S3FileStorageGateway", "Output Adapter (aioboto3)", "Implementa FileStoragePort. Baixa diagramas do bucket archlens-diagramas no S3 ou LocalStack.")
+        Component(rabbitmq_publisher, "RabbitMQEventPublisherGateway", "Output Adapter (aio-pika)", "Implementa EventPublisherPort. Publica ProcessamentoIniciado (analise.processamento.iniciado), AnaliseConcluida (analise.processamento.concluida) e AnaliseFalhou (analise.processamento.falhou).")
+        Component(processamento_repo, "SQLAlchemyProcessamentoRepository", "Output Adapter (SQLAlchemy async)", "Implementa ProcessamentoRepositoryPort. Persiste Processamento, Componentes e Riscos no processing_db.")
+    }
+
+    Rel(kong, processamento_router, "Encaminha consultas HTTP de processamento", "HTTP, REST")
+    Rel(rabbitmq, diagrama_consumer, "Entrega DiagramaEnviado para inicio do processamento", "AMQP")
+
+    Rel(processamento_router, get_processing_uc, "Delega consulta de resultado")
+    Rel(diagrama_consumer, process_diagram_uc, "Delega execução do pipeline de processamento")
+
+    Rel(process_diagram_uc, file_storage_port, "Usa — baixa diagrama do S3")
+    Rel(process_diagram_uc, image_processor_port, "Usa — processa e normaliza imagem")
+    Rel(process_diagram_uc, pipeline_port, "Usa — executa análise LLM multiagente")
+    Rel(process_diagram_uc, processamento_repo_port, "Usa — persiste resultados")
+    Rel(process_diagram_uc, event_publisher_port, "Usa — publica eventos de conclusão ou falha")
+    Rel(get_processing_uc, processamento_repo_port, "Usa — consulta resultado por ID")
+
+    Rel(image_processor_port, fitz_gateway, "Implementado por")
+    Rel(pipeline_port, multiagent_pipeline, "Implementado por (padrão)")
+    Rel(pipeline_port, single_pipeline, "Implementado por (alternativo)")
+    Rel(llm_client_port, llm_client_gateway, "Implementado por")
+    Rel(file_storage_port, s3_gateway, "Implementado por")
+    Rel(event_publisher_port, rabbitmq_publisher, "Implementado por")
+    Rel(processamento_repo_port, processamento_repo, "Implementado por")
+
+    Rel(multiagent_pipeline, llm_client_port, "Usa — chama ExtractorAgent e AnalyzerAgent via LLM")
+    Rel(single_pipeline, llm_client_port, "Usa — executa análise em chamada única")
+
+    Rel(llm_client_gateway, litellm, "Envia prompts e imagens para archlens-vision e archlens-analyzer", "HTTP, REST")
+    Rel(s3_gateway, s3, "Baixa diagrama original para processamento", "HTTPS, S3 API")
+    Rel(rabbitmq_publisher, rabbitmq, "Publica eventos de processamento", "AMQP")
+    Rel(processamento_repo, postgres, "Lê e escreve Processamento, Componentes e Riscos", "TCP/SQL")

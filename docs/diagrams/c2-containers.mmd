@@ -1,0 +1,71 @@
+%% Diagrama: ArchLens — Sistema de Análise de Arquitetura com IA
+%% Nível C4: C2 — Containers
+%% Descrição: Todos os containers do sistema ArchLens com tecnologias, responsabilidades e protocolos de comunicação.
+%%             Nota: PostgreSQL é instância compartilhada (MVP) com 4 databases isolados por usuário de banco.
+%%             Em desenvolvimento o object storage é emulado pelo LocalStack; em produção usa AWS S3.
+
+C4Container
+    title Diagrama de Containers (C2) — ArchLens
+
+    Person(usuario, "Arquiteto / Engenheiro", "Usuário final que envia diagramas e consulta relatórios")
+
+    System_Ext(clerk, "Clerk", "Provedor de identidade e JWT")
+    System_Ext(gemini, "Google Gemini API", "Provedor de LLM (Gemini Vision e Text)")
+    System_Ext(newrelic, "New Relic", "Plataforma de observabilidade (APM, RUM, Infra)")
+
+    System_Boundary(archlens, "ArchLens") {
+
+        Container(frontend, "Frontend", "React 18, TypeScript, Vite, Nginx", "SPA de upload de diagramas e visualização de relatórios. Autenticação via Clerk SDK. Inclui New Relic Browser Agent (RUM).")
+
+        Container(kong, "Kong", "Kong API Gateway 3.x (declarativo)", "Ponto de entrada único. Valida JWT emitido pelo Clerk (plugin JWT). Aplica rate-limiting (30 req/min por IP), CORS e limite de payload (10 MB).")
+
+        Container(upload_service, "Upload Service", "FastAPI, Python 3.13, SQLAlchemy, aio-pika, aioboto3", "Recebe e valida diagramas. Persiste metadados (Diagrama, Analise). Armazena arquivo no S3. Publica DiagramaEnviado. Consome atualizações de status da fila e atualiza o status da Analise.")
+
+        Container(processing_service, "Processing Service", "FastAPI, Python 3.13, pydantic-ai, PyMuPDF, SQLAlchemy, aio-pika, aioboto3", "Consome DiagramaEnviado. Converte PDF em PNG se necessário. Executa pipeline multiagente (ExtractorAgent com archlens-vision + AnalyzerAgent com archlens-analyzer). Persiste Processamento, Componentes e Riscos.")
+
+        Container(report_service, "Report Service", "FastAPI, Python 3.13, pydantic-ai, SQLAlchemy, aio-pika, aioboto3", "Consome AnaliseConcluida. Calcula estatísticas. Gera relatório Markdown narrativo via LLM. Armazena Markdown no S3. Publica RelatorioGerado.")
+
+        Container(litellm, "LiteLLM Gateway", "LiteLLM Proxy", "Proxy e roteador de modelos LLM. Guardrails em 3 camadas: detecção de prompt injection (built-in), mascaramento de PII via Presidio (pré-chamada) e validação de JSON (pós-chamada). Cache in-memory (TTL 3600 s). Fallback automático entre modelos Gemini.")
+
+        ContainerQueue(rabbitmq, "RabbitMQ", "RabbitMQ 3.13 (topic exchange)", "Message broker assíncrono. Exchange: analise.events. Filas com DLQ para cada serviço: processing-service.pipeline, report-service.reports e upload-service.status-updates.")
+
+        ContainerDb(postgres, "PostgreSQL", "PostgreSQL 16 (instância compartilhada — MVP)", "4 databases com usuários isolados: upload_db (Diagrama, Analise), processing_db (Processamento, Componente, Risco), report_db (Relatorio) e litellm_db (logs e modelos do LiteLLM).")
+
+        Container(s3, "Object Storage", "LocalStack 4.x (dev) / AWS S3 (prod)", "Bucket archlens-diagramas. Armazena diagramas originais em diagramas/{year}/{month}/{day}/{id}.{ext} e relatórios Markdown em relatorios/{analise_id}/relatorio.md. Lifecycle: expiração em 30 dias.")
+    }
+
+    Rel(usuario, frontend, "Acessa via navegador", "HTTPS")
+    Rel(usuario, clerk, "Realiza login", "HTTPS")
+    Rel(frontend, clerk, "Obtém JWT após autenticação do usuário", "HTTPS")
+    Rel(frontend, kong, "Envia diagrama e consulta status e relatório (com JWT no header)", "HTTPS, REST")
+    Rel(kong, clerk, "Valida JWT via JWKS para cada requisição autenticada", "HTTPS")
+    Rel(kong, upload_service, "Encaminha requisições de análise (POST /v1/analises, GET /v1/analises/{id})", "HTTP, REST")
+    Rel(kong, processing_service, "Encaminha consultas de processamento (GET /v1/processamentos/{id})", "HTTP, REST")
+    Rel(kong, report_service, "Encaminha consultas de relatório (GET /v1/relatorios/{analise_id})", "HTTP, REST")
+
+    Rel(upload_service, postgres, "Persiste e consulta Diagrama e Analise (upload_db)", "TCP/SQL, SQLAlchemy async")
+    Rel(upload_service, s3, "Armazena diagrama original", "HTTPS, S3 API (aioboto3)")
+    Rel(upload_service, rabbitmq, "Publica DiagramaEnviado (routing key: analise.diagrama.enviado)", "AMQP, aio-pika")
+    Rel(rabbitmq, upload_service, "Entrega ProcessamentoIniciado, AnaliseConcluida, AnaliseFalhou e RelatorioGerado para atualização de status", "AMQP")
+
+    Rel(rabbitmq, processing_service, "Entrega DiagramaEnviado para inicio do processamento", "AMQP")
+    Rel(processing_service, s3, "Baixa diagrama original para processamento", "HTTPS, S3 API (aioboto3)")
+    Rel(processing_service, litellm, "Executa ExtractorAgent (archlens-vision) e AnalyzerAgent (archlens-analyzer) no pipeline multiagente", "HTTP, REST")
+    Rel(processing_service, postgres, "Persiste Processamento, Componentes e Riscos (processing_db)", "TCP/SQL, SQLAlchemy async")
+    Rel(processing_service, rabbitmq, "Publica ProcessamentoIniciado, AnaliseConcluida e AnaliseFalhou", "AMQP, aio-pika")
+
+    Rel(rabbitmq, report_service, "Entrega AnaliseConcluida para geração do relatório", "AMQP")
+    Rel(report_service, litellm, "Gera narrativa Markdown estruturada do relatório (archlens-analyzer)", "HTTP, REST")
+    Rel(report_service, s3, "Armazena relatório Markdown gerado", "HTTPS, S3 API (aioboto3)")
+    Rel(report_service, postgres, "Persiste Relatorio (report_db)", "TCP/SQL, SQLAlchemy async")
+    Rel(report_service, rabbitmq, "Publica RelatorioGerado (routing key: analise.relatorio.gerado)", "AMQP, aio-pika")
+
+    Rel(litellm, gemini, "Envia prompts e imagens para modelos archlens-vision e archlens-analyzer (com fallback)", "HTTPS")
+    Rel(litellm, postgres, "Persiste logs de uso, spend e modelos (litellm_db)", "TCP/SQL")
+
+    Rel(frontend, newrelic, "Envia métricas de browser e dados de experiência do usuario (RUM)", "HTTPS")
+    Rel(upload_service, newrelic, "Envia métricas APM, traces e logs", "HTTPS")
+    Rel(processing_service, newrelic, "Envia métricas APM, traces e logs", "HTTPS")
+    Rel(report_service, newrelic, "Envia métricas APM, traces e logs", "HTTPS")
+
+    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
