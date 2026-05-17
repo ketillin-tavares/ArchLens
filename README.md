@@ -34,11 +34,13 @@ Todos os serviços de aplicação seguem **Clean Architecture** com implementaç
 | Presidio Anonymizer | Anonimização de PII | 5002 |
 | New Relic Infrastructure | Coleta de métricas e logs | — |
 
-### Diagrama da Arquitetura
+### Diagramas de Arquitetura
 
-Os diagramas (contexto, container, componente) estão disponíveis no Miro:
-
-**[Ver diagrama no Miro](https://miro.com/app/board/uXjVHSGO7qY=/?share_link_id=805394473514)**
+- **C1 (Contexto) e C2 (Containers):** disponíveis no Miro — **[Ver no Miro](https://miro.com/app/board/uXjVHSGO7qY=/?share_link_id=805394473514)**
+- **C3 (Componentes):** diagramas Mermaid por serviço em [docs/diagrams/](docs/diagrams/)
+  - [c3-upload-service.mmd](docs/diagrams/c3-upload-service.mmd)
+  - [c3-processing-service.mmd](docs/diagrams/c3-processing-service.mmd)
+  - [c3-report-service.mmd](docs/diagrams/c3-report-service.mmd)
 
 ### Nota sobre banco de dados (MVP)
 
