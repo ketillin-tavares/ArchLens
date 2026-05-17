@@ -298,6 +298,11 @@ services:
         VITE_KONG_BASE_URL: "/api"
         VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
         VITE_CLERK_JWT_TEMPLATE: ${VITE_CLERK_JWT_TEMPLATE:-archlens}
+        VITE_NEWRELIC_LICENSE_KEY: ${VITE_NEWRELIC_LICENSE_KEY:-}
+        VITE_NEWRELIC_BROWSER_APP_ID: ${VITE_NEWRELIC_BROWSER_APP_ID:-}
+        VITE_NEWRELIC_ACCOUNT_ID: ${VITE_NEWRELIC_ACCOUNT_ID:-}
+        VITE_NEWRELIC_BROWSER_AGENT_ID: ${VITE_NEWRELIC_BROWSER_AGENT_ID:-}
+        VITE_NEWRELIC_TRUST_KEY: ${VITE_NEWRELIC_TRUST_KEY:-}
     container_name: frontend
     hostname: frontend
     ports:
@@ -321,6 +326,10 @@ services:
     cap_add:
       - SYS_PTRACE
     pid: host
+    # cgroup: host equivale a --cgroupns=host. Sem isso, em cgroup v2,
+    # o agent ve so o cgroup do proprio container e reporta zeros pra
+    # todos os outros. No Docker Desktop Windows nao tem efeito.
+    cgroup: host
     privileged: true
     environment:
       NRIA_DISPLAY_NAME: archlens-local
@@ -331,6 +340,10 @@ services:
       NRIA_METRICS_NETWORK_SAMPLE_RATE: 30
       NRIA_METRICS_STORAGE_SAMPLE_RATE: 30
       NRIA_CONTAINER_CACHE_METADATA_LIMIT: 120
+      # Consumido por integrations.d/rabbitmq-config.yml via {{VAR}}.
+      # Em dev sao hardcoded (mesmos valores do servico rabbitmq).
+      RABBITMQ_DEFAULT_USER: archlens
+      RABBITMQ_DEFAULT_PASS: archlens_dev
     env_file:
       - .env
     volumes:
