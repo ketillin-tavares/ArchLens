@@ -48,6 +48,7 @@ export function ResultsPage({
   const [loadingMd, setLoadingMd] = useState(true);
   const [reportError, setReportError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
 
   const ready = analise?.status === "analisado";
   const failed = analise?.status === "erro";
@@ -115,6 +116,16 @@ export function ResultsPage({
     }
   };
 
+  const copyId = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(analiseId);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable — silently ignore */
+    }
+  };
+
   const estatisticas = relatorio?.conteudo?.estatisticas;
   const sev = estatisticas?.riscos_por_severidade;
   const tiposMap = componentesPorTipo(relatorio?.conteudo?.componentes);
@@ -157,8 +168,69 @@ export function ResultsPage({
             }}
           >
             <Pill tone={pillTone}>{pillLabel}</Pill>
-            <span>
-              análise · {analiseId.slice(0, 8)}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                textTransform: "none",
+                letterSpacing: 0,
+              }}
+            >
+              <span style={{ color: TOKENS.slate }}>Análise ID:</span>
+              <code
+                style={{
+                  fontFamily: "Geist Mono",
+                  fontSize: 12,
+                  color: TOKENS.ink,
+                  background: TOKENS.mist,
+                  border: `1px solid ${TOKENS.line}`,
+                  borderRadius: 6,
+                  padding: "2px 6px",
+                }}
+              >
+                {analiseId}
+              </code>
+              <button
+                onClick={copyId}
+                title={idCopied ? "Copiado!" : "Copiar ID"}
+                aria-label="Copiar ID da análise"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 4,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  color: idCopied ? TOKENS.ok : TOKENS.slate,
+                }}
+              >
+                {idCopied ? (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 7.5L6 10.5L11 4.5" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M5 9l4-4m-3-2h3a2 2 0 012 2v3M4 7H3a2 2 0 00-2 2v1a2 2 0 002 2h4a2 2 0 002-2v-1" />
+                  </svg>
+                )}
+              </button>
             </span>
             {relatorio && <span>· {formatDate(relatorio.criado_em)}</span>}
           </div>

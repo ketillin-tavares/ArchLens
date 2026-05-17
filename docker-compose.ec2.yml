@@ -266,6 +266,10 @@ services:
     cap_add:
       - SYS_PTRACE
     pid: host
+    # cgroup: host equivale a --cgroupns=host. Sem isso, em cgroup v2
+    # (Ubuntu 22.04 default), o agent ve so o cgroup do proprio container
+    # e reporta cpuPercent/memoryUsageBytes = 0 pra todos os outros.
+    cgroup: host
     privileged: true
     environment:
       NRIA_DISPLAY_NAME: archlens-ec2
