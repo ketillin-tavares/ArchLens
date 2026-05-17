@@ -173,6 +173,39 @@ Todos acessíveis via Kong Gateway em `http://localhost:8000`.
 - `GET /processing` — Processing Service
 - `GET /health` — Report Service
 
+## Testes Manuais — Postman
+
+A pasta [docs/postman/](docs/postman/) contém duas collections e três environments prontos para importar no Postman.
+
+### Collections
+
+| Arquivo | Ambiente alvo |
+|---------|---------------|
+| [archlens-collection.json](docs/postman/archlens-collection.json) | Local (Docker Compose) |
+| [archlens-collection-deployed.json](docs/postman/archlens-collection-deployed.json) | Deployed (AWS EC2) |
+
+A collection local cobre o fluxo completo incluindo acesso direto aos serviços e infraestrutura. A collection deployed expõe apenas os endpoints publicamente acessíveis na EC2: health checks, upload de diagrama, polling de status, consulta de processamento, consulta de relatório, download presigned e testes de erro (400, 404, 409, 413).
+
+### Environments
+
+| Arquivo | Uso |
+|---------|-----|
+| [environment-kong-gateway.json](docs/postman/environment-kong-gateway.json) | Local — via Kong (porta 8000) |
+| [environment-direct-access.json](docs/postman/environment-direct-access.json) | Local — acesso direto aos serviços (portas 8010/8011/8012) |
+| [environment-kong-deployed.json](docs/postman/environment-kong-deployed.json) | Deployed — Kong na EC2 |
+
+### Como usar
+
+1. No Postman: **Import** → selecione a collection e o environment desejados.
+2. Para o ambiente **local**: ative `ArchLens - Kong Gateway` ou `ArchLens - Acesso Direto`.
+3. Para o ambiente **deployado**:
+   - Ative `ArchLens - Kong Gateway (Deployed - AWS)`.
+   - Preencha `base_url` com o valor de `terraform output kong_api_url` (formato: `http://<EC2_PUBLIC_DNS>:8000`).
+   - Se o Kong JWT estiver habilitado, gere o token com `python gateways/kong/generate-jwt.py` e preencha `kong_jwt_token`.
+4. Execute o grupo **Fluxo Completo (Happy Path)** na ordem — o `analise_id` é salvo automaticamente entre as requests.
+
+> Na EC2, apenas as portas 8000 (Kong) e 4000 (LiteLLM — restrito ao IP do operador) são expostas publicamente. Acesso direto aos serviços (8010/8011/8012), RabbitMQ Management e Kong Admin não estão disponíveis externamente.
+
 ## Testes
 
 Execute via Makefile em cada serviço:
