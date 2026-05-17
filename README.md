@@ -1,4 +1,8 @@
-# ArchLens
+<p align="center">
+  <img src="frontend/public/favicon.svg" alt="ArchLens logo" width="96" height="96" />
+</p>
+
+<h1 align="center">ArchLens</h1>
 
 | Serviço | Quality Gate |
 |---------|:------------:|
